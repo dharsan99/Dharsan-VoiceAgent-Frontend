@@ -357,46 +357,7 @@ function App() {
               </div>
             </div>
 
-            {/* Advanced Features Panel */}
-            <div className="bg-gray-800/80 backdrop-blur-sm p-4 sm:p-6 rounded-2xl shadow-2xl border border-gray-700/50 hover:border-gray-600/50 transition-all duration-300">
-              <h2 className="text-lg sm:text-xl font-bold mb-4 text-cyan-400 flex items-center gap-2">
-                <Icons.AdvancedFeatures />
-                Advanced Features
-              </h2>
-              <div className="space-y-3">
-                <div className="flex items-center p-3 bg-green-500/10 rounded-xl border border-green-500/20 hover:bg-green-500/20 transition-all duration-300 group">
-                  <Icons.Check className="text-green-400 mr-3 text-xl group-hover:scale-110 transition-transform duration-300" />
-                  <div>
-                    <p className="font-semibold text-green-400 text-sm sm:text-base">Dynamic Jitter Buffering</p>
-                    <p className="text-xs text-gray-400">Adaptive buffer sizing</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center p-3 bg-blue-500/10 rounded-xl border border-blue-500/20 hover:bg-blue-500/20 transition-all duration-300 group">
-                  <Icons.Check className="text-blue-400 mr-3 text-xl group-hover:scale-110 transition-transform duration-300" />
-                  <div>
-                    <p className="font-semibold text-blue-400 text-sm sm:text-base">Word-level Highlighting</p>
-                    <p className="text-xs text-gray-400">Real-time sync</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center p-3 bg-purple-500/10 rounded-xl border border-purple-500/20 hover:bg-purple-500/20 transition-all duration-300 group">
-                  <Icons.Check className="text-purple-400 mr-3 text-xl group-hover:scale-110 transition-transform duration-300" />
-                  <div>
-                    <p className="font-semibold text-purple-400 text-sm sm:text-base">Error Recovery</p>
-                    <p className="text-xs text-gray-400">Auto-retry & fallback</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center p-3 bg-yellow-500/10 rounded-xl border border-yellow-500/20 hover:bg-yellow-500/20 transition-all duration-300 group">
-                  <Icons.Check className="text-yellow-400 mr-3 text-xl group-hover:scale-110 transition-transform duration-300" />
-                  <div>
-                    <p className="font-semibold text-yellow-400 text-sm sm:text-base">AudioWorklet Processing</p>
-                    <p className="text-xs text-gray-400">Low-latency audio</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+           
           </div>
 
           {/* Right Column: Transcript & Performance */}
