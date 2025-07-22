@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { useVoiceAgent } from './hooks/useVoiceAgent';
 import { WordHighlightDisplay } from './components/WordHighlightDisplay';
 import { SessionAnalytics } from './components/analytics/SessionAnalytics';
+import VersionSwitcher from './components/VersionSwitcher';
+import VoiceAgentV2 from './components/VoiceAgentV2';
+import VoiceAgentWebRTC from './components/VoiceAgentWebRTC';
 
 // Premium SVG Icons
 interface IconProps {
@@ -97,92 +100,107 @@ const StatCard = ({ title, value, unit = '', color = 'text-white', subtitle = ''
   <div className="bg-gray-800/60 backdrop-blur-sm p-4 rounded-xl text-center border border-gray-700/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group">
     <p className="text-xs text-gray-400 font-medium mb-2 uppercase tracking-wide">{title}</p>
     <p className={`text-3xl font-bold ${color} group-hover:scale-110 transition-transform duration-300`}>
-      {value}
-      <span className="text-sm text-gray-300 ml-1 font-normal">{unit}</span>
+      {value}{unit}
     </p>
-    {subtitle && <p className="text-xs text-gray-500 mt-2 font-medium">{subtitle}</p>}
+    {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
   </div>
 );
 
-// Component to visualize the audio buffer
 const BufferVisualizer = ({ size, capacity, isPlaying }: {
   size: number;
   capacity: number;
   isPlaying: boolean;
 }) => {
-  const percentage = capacity > 0 ? (size / capacity) * 100 : 0;
-  let bgColor = 'bg-gradient-to-r from-green-400 to-green-500';
-  let statusColor = 'text-green-400';
-  
-  if (percentage > 75) {
-    bgColor = 'bg-gradient-to-r from-red-400 to-red-500';
-    statusColor = 'text-red-400';
-  } else if (percentage > 50) {
-    bgColor = 'bg-gradient-to-r from-yellow-400 to-yellow-500';
-    statusColor = 'text-yellow-400';
-  }
-
+  const percentage = (size / capacity) * 100;
   return (
-    <div className="bg-gray-800/60 backdrop-blur-sm p-5 rounded-xl border border-gray-700/50 shadow-lg">
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-sm font-semibold text-gray-300">Audio Buffer</p>
-        <div className="flex items-center gap-2">
-          <div className={`w-3 h-3 rounded-full ${isPlaying ? 'bg-blue-400 animate-pulse' : 'bg-gray-500'} transition-all duration-300`}></div>
-          <span className={`text-xs font-medium ${statusColor} transition-colors duration-300`}>
-            {isPlaying ? 'Playing' : 'Buffering'}
+    <div className="bg-gray-800/60 backdrop-blur-sm p-4 sm:p-5 rounded-xl border border-gray-700/50 shadow-lg">
+      <h3 className="text-lg font-bold text-cyan-400 mb-4 flex items-center gap-2">
+        <Icons.AdvancedFeatures />
+        Audio Buffer
+      </h3>
+      <div className="space-y-3">
+        <div className="flex justify-between text-sm sm:text-base">
+          <span className="text-gray-400 font-medium">Buffer Size:</span>
+          <span className="font-bold text-white">{size} / {capacity}</span>
+        </div>
+        <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+          <div 
+            className={`h-full transition-all duration-300 ${isPlaying ? 'bg-gradient-to-r from-blue-500 to-cyan-500' : 'bg-gradient-to-r from-gray-500 to-gray-600'}`}
+            style={{ width: `${percentage}%` }}
+          ></div>
+        </div>
+        <div className="flex justify-between text-sm sm:text-base">
+          <span className="text-gray-400 font-medium">Status:</span>
+          <span className={`font-bold ${isPlaying ? 'text-green-400' : 'text-gray-400'}`}>
+            {isPlaying ? 'Playing' : 'Idle'}
           </span>
         </div>
-      </div>
-      <div className="w-full bg-gray-700 rounded-full h-4 mb-3 overflow-hidden">
-        <div
-          className={`h-4 rounded-full transition-all duration-700 ease-out ${bgColor} shadow-lg`}
-          style={{ width: `${percentage}%` }}
-        ></div>
-      </div>
-      <div className="flex justify-between text-xs text-gray-400 font-medium">
-        <span>{size} chunks</span>
-        <span>Capacity: {capacity}</span>
       </div>
     </div>
   );
 };
 
-// Network quality indicator
 const NetworkQualityIndicator = ({ latency, jitter, packetLoss }: {
   latency: number;
   jitter: number;
   packetLoss: number;
 }) => {
-  let quality = 'Excellent';
-  let color = 'text-green-400';
-  let bgColor = 'bg-gradient-to-r from-green-400 to-green-500';
+  const getQualityColor = (value: number, thresholds: [number, number, number]) => {
+    if (value <= thresholds[0]) return 'text-green-400';
+    if (value <= thresholds[1]) return 'text-yellow-400';
+    return 'text-red-400';
+  };
 
-  if (latency > 200 || jitter > 50 || packetLoss > 5) {
-    quality = 'Poor';
-    color = 'text-red-400';
-    bgColor = 'bg-gradient-to-r from-red-400 to-red-500';
-  } else if (latency > 100 || jitter > 30 || packetLoss > 2) {
-    quality = 'Good';
-    color = 'text-yellow-400';
-    bgColor = 'bg-gradient-to-r from-yellow-400 to-yellow-500';
-  }
+  const getQualityText = (value: number, thresholds: [number, number, number]) => {
+    if (value <= thresholds[0]) return 'Excellent';
+    if (value <= thresholds[1]) return 'Good';
+    return 'Poor';
+  };
 
   return (
-    <div className="flex items-center justify-center gap-3 p-3 bg-gray-800/40 rounded-lg">
-      <div className={`w-4 h-4 rounded-full ${bgColor} animate-pulse`}></div>
-      <span className={`font-bold text-lg ${color} transition-colors duration-300`}>{quality}</span>
-      <span className="text-xs text-gray-400 font-medium">Network Quality</span>
+    <div>
+      <h3 className="text-lg font-bold text-cyan-400 mb-4 flex items-center gap-2">
+        <Icons.Network />
+        Network Quality
+      </h3>
+      <div className="space-y-3">
+        <div className="flex justify-between text-sm sm:text-base">
+          <span className="text-gray-400 font-medium">Latency:</span>
+          <span className={`font-bold ${getQualityColor(latency, [50, 100, 200])}`}>
+            {latency}ms ({getQualityText(latency, [50, 100, 200])})
+          </span>
+        </div>
+        <div className="flex justify-between text-sm sm:text-base">
+          <span className="text-gray-400 font-medium">Jitter:</span>
+          <span className={`font-bold ${getQualityColor(jitter, [10, 25, 50])}`}>
+            {jitter}ms ({getQualityText(jitter, [10, 25, 50])})
+          </span>
+        </div>
+        <div className="flex justify-between text-sm sm:text-base">
+          <span className="text-gray-400 font-medium">Packet Loss:</span>
+          <span className={`font-bold ${getQualityColor(packetLoss, [1, 5, 10])}`}>
+            {packetLoss}% ({getQualityText(packetLoss, [1, 5, 10])})
+          </span>
+        </div>
+      </div>
     </div>
   );
 };
 
 function App() {
+  const [currentVersion, setCurrentVersion] = useState<'v1' | 'v2' | 'webrtc'>('v1');
+  const [showAnalytics, setShowAnalytics] = useState(false);
+
+  const handleVersionChange = (version: 'v1' | 'v2' | 'webrtc') => {
+    setCurrentVersion(version);
+  };
+
+  // V1 Voice Agent
+  const v1VoiceAgent = useVoiceAgent();
   const {
     connectionStatus,
     listeningState,
     isVoiceActive,
-    // transcript,
-    // wordTimingData,
     interimTranscript,
     finalTranscripts,
     currentSpokenWordIndex,
@@ -194,9 +212,7 @@ function App() {
     connect,
     disconnect,
     clearTranscripts,
-  } = useVoiceAgent();
-
-  const [showAnalytics, setShowAnalytics] = useState(false);
+  } = v1VoiceAgent;
 
   const handleToggleConversation = () => {
     if (connectionStatus === 'connected') {
@@ -269,6 +285,14 @@ function App() {
           <p className="text-gray-400 text-base sm:text-lg lg:text-xl mb-2">Technical Demonstration for smallest.ai</p>
           <p className="text-gray-500 text-sm sm:text-base">Advanced Features Showcase</p>
           
+          {/* Version Switcher */}
+          <div className="mt-6 mb-8">
+            <VersionSwitcher 
+              currentVersion={currentVersion} 
+              onVersionChange={handleVersionChange} 
+            />
+          </div>
+          
           {/* Analytics Button */}
           <button 
             onClick={() => setShowAnalytics(true)}
@@ -282,231 +306,229 @@ function App() {
           </button>
         </header>
 
-        {/* Main Dashboard Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 sm:gap-6 lg:gap-8">
-          
-          {/* Left Column: Controls & Status */}
-          <div className="lg:col-span-1 xl:col-span-2 space-y-4 sm:space-y-6">
-            
-            {/* Controls Panel */}
-            <div className="bg-gray-800/80 backdrop-blur-sm p-4 sm:p-6 rounded-2xl shadow-2xl border border-gray-700/50 hover:border-gray-600/50 transition-all duration-300">
-              <h2 className="text-lg sm:text-xl font-bold mb-4 text-cyan-400 flex items-center gap-2">
-                <Icons.Controls />
-                Controls
-              </h2>
-              <button
-                onClick={handleToggleConversation}
-                disabled={connectionStatus === 'connecting'}
-                className={`w-full px-4 sm:px-6 py-3 sm:py-4 text-base sm:text-lg font-bold rounded-xl transition-all duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-cyan-500/50 shadow-lg flex items-center justify-center gap-2
-                  ${connectionStatus === 'connected' 
-                    ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800' 
-                    : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700'
-                  }
-                  ${connectionStatus === 'connecting' 
-                    ? 'bg-gray-600 cursor-not-allowed opacity-50' 
-                    : 'transform hover:scale-105 active:scale-95 hover:shadow-2xl'
-                  }`}
-              >
-                {connectionStatus === 'connecting' 
-                  ? <><Icons.Loading /> Connecting...</>
-                  : connectionStatus === 'connected' 
-                    ? <><Icons.Stop /> Stop Conversation</>
-                    : <><Icons.Play /> Start Conversation</>
-                }
-              </button>
-              
-              <div className="mt-4 p-3 bg-gray-700/50 rounded-lg border border-gray-600/30">
-                <p className="text-xs text-gray-400 mb-1">Status: <span className="text-cyan-400 font-medium">{connectionStatus}</span></p>
-                <p className="text-xs text-gray-400">Backend: <span className="text-green-400 font-mono text-xs break-all">{import.meta.env.VITE_WEBSOCKET_URL}</span></p>
-              </div>
-            </div>
-
-            {/* System Status Panel */}
-            <div className="bg-gray-800/80 backdrop-blur-sm p-4 sm:p-6 rounded-2xl shadow-2xl border border-gray-700/50 hover:border-gray-600/50 transition-all duration-300">
-              <h2 className="text-lg sm:text-xl font-bold mb-4 text-cyan-400 flex items-center gap-2">
-                <Icons.SystemStatus />
-                System Status
-              </h2>
-              <div className="space-y-3 sm:space-y-4">
-                <div className="flex items-center justify-between p-3 bg-gray-700/50 rounded-xl border border-gray-600/30 hover:bg-gray-700/70 transition-all duration-300">
-                  <span className="text-gray-300 font-medium text-sm sm:text-base">Agent State:</span>
-                  <div className="flex items-center gap-2">
-                    <div className={`w-4 h-4 rounded-full bg-gradient-to-r ${statusInfo.bgGradient} shadow-lg`}></div>
-                    <span className="font-bold text-sm sm:text-base flex items-center gap-1">
-                      {statusInfo.icon} {statusInfo.text}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between p-3 bg-gray-700/50 rounded-xl border border-gray-600/30 hover:bg-gray-700/70 transition-all duration-300">
-                  <span className="text-gray-300 font-medium text-sm sm:text-base">Voice Activity:</span>
-                  <div className="flex items-center gap-2">
-                    <div className={`w-4 h-4 rounded-full ${isVoiceActive ? 'bg-red-500 animate-pulse' : 'bg-gray-600'} transition-all duration-300`}></div>
-                    <span className="font-bold text-sm sm:text-base flex items-center gap-1">
-                      {isVoiceActive ? <><Icons.Microphone /> Detected</> : <><Icons.Speaker /> Silent</>}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between p-3 bg-gray-700/50 rounded-xl border border-gray-600/30 hover:bg-gray-700/70 transition-all duration-300">
-                  <span className="text-gray-300 font-medium text-sm sm:text-base">Error Recovery:</span>
-                  <span className={`font-bold text-sm sm:text-base flex items-center gap-1 ${recoveryInfo.isRecovering ? 'text-yellow-400' : 'text-green-400'}`}>
-                    {recoveryInfo.isRecovering ? <><Icons.Loading /> Recovering</> : <><Icons.Check /> Stable</>}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-           
-          </div>
-
-          {/* Right Column: Transcript & Performance */}
-          <div className="lg:col-span-3 xl:col-span-3 2xl:col-span-4 space-y-4 sm:space-y-6">
-            
-            {/* Live Transcript Panel */}
-            <div className="bg-gray-800/80 backdrop-blur-sm p-4 sm:p-6 rounded-2xl shadow-2xl border border-gray-700/50 hover:border-gray-600/50 transition-all duration-300">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg sm:text-xl font-bold text-cyan-400 flex items-center gap-2">
-                  <Icons.Transcript />
-                  Live Transcript
+        {/* Conditional Rendering based on Version */}
+        {currentVersion === 'v1' ? (
+          /* V1 Dashboard */
+          <div className="grid grid-cols-1 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 sm:gap-6 lg:gap-8">
+            {/* Left Column: Controls & Status */}
+            <div className="lg:col-span-1 xl:col-span-2 space-y-4 sm:space-y-6">
+              {/* Controls Panel */}
+              <div className="bg-gray-800/80 backdrop-blur-sm p-4 sm:p-6 rounded-2xl shadow-2xl border border-gray-700/50 hover:border-gray-600/50 transition-all duration-300">
+                <h2 className="text-lg sm:text-xl font-bold mb-4 text-cyan-400 flex items-center gap-2">
+                  <Icons.Controls />
+                  Controls
                 </h2>
-                <div className="flex items-center gap-2 text-xs text-gray-400">
-                  <span className="px-2 py-1 bg-gray-700/50 rounded-full">
-                    {finalTranscripts.length} exchanges
-                  </span>
-                  {interimTranscript && (
-                    <span className="px-2 py-1 bg-yellow-600/30 text-yellow-300 rounded-full animate-pulse">
-                      Processing...
-                    </span>
-                  )}
-                </div>
-              </div>
-              
-              <div className="relative">
-                {/* Transcript Container with Enhanced Scrolling */}
-                <div className="bg-gray-900/50 rounded-xl border border-gray-600/30 overflow-hidden">
-                  <div className="h-[300px] sm:h-[350px] lg:h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800 scroll-smooth">
-                    <div className="p-4 pb-6">
-                      <WordHighlightDisplay 
-                        finalTranscripts={finalTranscripts}
-                        currentSpokenWordIndex={currentSpokenWordIndex}
-                        interimTranscript={interimTranscript}
-                        aiResponse={aiResponse}
-                        className="space-y-3"
-                      />
-                    </div>
-                  </div>
-                  
-                  {/* Scroll Indicator */}
-                  <div className="absolute bottom-2 right-2">
-                    <div className="bg-gray-800/80 backdrop-blur-sm px-2 py-1 rounded-full text-xs text-gray-400 border border-gray-600/30">
-                      Auto-scroll enabled
-                    </div>
-                  </div>
-                </div>
+                <button
+                  onClick={handleToggleConversation}
+                  disabled={connectionStatus === 'connecting'}
+                  className={`w-full px-4 sm:px-6 py-3 sm:py-4 text-base sm:text-lg font-bold rounded-xl transition-all duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-cyan-500/50 shadow-lg flex items-center justify-center gap-2
+                    ${connectionStatus === 'connected' 
+                      ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800' 
+                      : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700'
+                    }
+                    ${connectionStatus === 'connecting' 
+                      ? 'bg-gray-600 cursor-not-allowed opacity-50' 
+                      : 'transform hover:scale-105 active:scale-95 hover:shadow-2xl'
+                    }`}
+                >
+                  {connectionStatus === 'connecting' 
+                    ? <><Icons.Loading /> Connecting...</>
+                    : connectionStatus === 'connected' 
+                      ? <><Icons.Stop /> Stop Conversation</>
+                      : <><Icons.Play /> Start Conversation</>
+                  }
+                </button>
                 
-                {/* Transcript Controls */}
-                <div className="flex items-center justify-between mt-3 text-xs text-gray-400">
-                  <div className="flex items-center gap-4">
-                    <button 
-                      className="px-3 py-1 bg-gray-700/50 hover:bg-gray-600/50 rounded-lg transition-colors duration-200 flex items-center gap-1"
-                      onClick={() => {
-                        if (window.confirm('Clear all transcripts?')) {
-                          clearTranscripts();
-                        }
-                      }}
-                    >
-                      <Icons.Error className="w-3 h-3" />
-                      Clear
-                    </button>
-                    <span className="text-gray-500">|</span>
-                    <span className="text-gray-500">
-                      {finalTranscripts.length > 0 ? 
-                        `${finalTranscripts[finalTranscripts.length - 1].text.length} chars` : 
-                        '0 chars'
-                      }
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
-                    <span>Real-time</span>
-                  </div>
+                <div className="mt-4 p-3 bg-gray-700/50 rounded-lg border border-gray-600/30">
+                  <p className="text-xs text-gray-400 mb-1">Status: <span className="text-cyan-400 font-medium">{connectionStatus}</span></p>
+                  <p className="text-xs text-gray-400">Backend: <span className="text-green-400 font-mono text-xs break-all">{import.meta.env.VITE_WEBSOCKET_URL}</span></p>
                 </div>
               </div>
-            </div>
 
-            {/* Network Performance Panel */}
-            <div className="bg-gray-800/80 backdrop-blur-sm p-4 sm:p-6 rounded-2xl shadow-2xl border border-gray-700/50 hover:border-gray-600/50 transition-all duration-300">
-              <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6 text-cyan-400 flex items-center gap-2">
-                <Icons.Network />
-                Real-Time Network Performance
-              </h2>
-              
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
-                <StatCard 
-                  title="Latency" 
-                  value={networkStats.averageLatency} 
-                  unit="ms" 
-                  color={networkStats.averageLatency > 200 ? 'text-yellow-400' : 'text-green-400'}
-                  subtitle={networkStats.averageLatency > 200 ? 'High' : 'Optimal'}
-                />
-                <StatCard 
-                  title="Jitter" 
-                  value={networkStats.jitter} 
-                  unit="ms"
-                  color={networkStats.jitter > 50 ? 'text-yellow-400' : 'text-green-400'}
-                  subtitle={networkStats.jitter > 50 ? 'Unstable' : 'Stable'}
-                />
-                <StatCard 
-                  title="Packet Loss" 
-                  value={networkStats.packetLoss} 
-                  unit="%"
-                  color={networkStats.packetLoss > 2 ? 'text-red-400' : 'text-green-400'}
-                  subtitle={networkStats.packetLoss > 2 ? 'Poor' : 'Good'}
-                />
-                <StatCard 
-                  title="Buffer Delay" 
-                  value={networkStats.jitterBufferDelay} 
-                  unit="ms"
-                  color={networkStats.jitterBufferDelay > 150 ? 'text-yellow-400' : 'text-green-400'}
-                  subtitle={networkStats.jitterBufferDelay > 150 ? 'High' : 'Low'}
-                />
+              {/* System Status Panel */}
+              <div className="bg-gray-800/80 backdrop-blur-sm p-4 sm:p-6 rounded-2xl shadow-2xl border border-gray-700/50 hover:border-gray-600/50 transition-all duration-300">
+                <h2 className="text-lg sm:text-xl font-bold mb-4 text-cyan-400 flex items-center gap-2">
+                  <Icons.SystemStatus />
+                  System Status
+                </h2>
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="flex items-center justify-between p-3 bg-gray-700/50 rounded-xl border border-gray-600/30 hover:bg-gray-700/70 transition-all duration-300">
+                    <span className="text-gray-300 font-medium text-sm sm:text-base">Agent State:</span>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-4 h-4 rounded-full bg-gradient-to-r ${statusInfo.bgGradient} shadow-lg`}></div>
+                      <span className="font-bold text-sm sm:text-base flex items-center gap-1">
+                        {statusInfo.icon} {statusInfo.text}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-3 bg-gray-700/50 rounded-xl border border-gray-600/30 hover:bg-gray-700/70 transition-all duration-300">
+                    <span className="text-gray-300 font-medium text-sm sm:text-base">Voice Activity:</span>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-4 h-4 rounded-full ${isVoiceActive ? 'bg-red-500 animate-pulse' : 'bg-gray-600'} transition-all duration-300`}></div>
+                      <span className="font-bold text-sm sm:text-base flex items-center gap-1">
+                        {isVoiceActive ? <><Icons.Microphone /> Detected</> : <><Icons.Speaker /> Silent</>}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-3 bg-gray-700/50 rounded-xl border border-gray-600/30 hover:bg-gray-700/70 transition-all duration-300">
+                    <span className="text-gray-300 font-medium text-sm sm:text-base">Error Recovery:</span>
+                    <span className={`font-bold text-sm sm:text-base flex items-center gap-1 ${recoveryInfo.isRecovering ? 'text-yellow-400' : 'text-green-400'}`}>
+                      {recoveryInfo.isRecovering ? <><Icons.Loading /> Recovering</> : <><Icons.Check /> Stable</>}
+                    </span>
+                  </div>
+                </div>
               </div>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                <BufferVisualizer 
-                  size={bufferInfo.size} 
-                  capacity={bufferInfo.capacity}
-                  isPlaying={bufferInfo.isPlaying}
-                />
+
+              {/* Performance Stats */}
+              <div className="bg-gray-800/80 backdrop-blur-sm p-4 sm:p-6 rounded-2xl shadow-2xl border border-gray-700/50 hover:border-gray-600/50 transition-all duration-300">
+                <h2 className="text-lg sm:text-xl font-bold mb-4 text-cyan-400 flex items-center gap-2">
+                  <Icons.Target />
+                  Performance
+                </h2>
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  <StatCard 
+                    title="Latency" 
+                    value={networkStats.averageLatency} 
+                    unit="ms"
+                    color={networkStats.averageLatency > 200 ? 'text-red-400' : networkStats.averageLatency > 100 ? 'text-yellow-400' : 'text-green-400'}
+                    subtitle={networkStats.averageLatency > 200 ? 'High' : networkStats.averageLatency > 100 ? 'Medium' : 'Low'}
+                  />
+                  <StatCard 
+                    title="Jitter" 
+                    value={networkStats.jitter} 
+                    unit="ms"
+                    color={networkStats.jitter > 50 ? 'text-red-400' : networkStats.jitter > 25 ? 'text-yellow-400' : 'text-green-400'}
+                    subtitle={networkStats.jitter > 50 ? 'High' : networkStats.jitter > 25 ? 'Medium' : 'Low'}
+                  />
+                  <StatCard 
+                    title="Packet Loss" 
+                    value={networkStats.packetLoss} 
+                    unit="%"
+                    color={networkStats.packetLoss > 5 ? 'text-red-400' : networkStats.packetLoss > 1 ? 'text-yellow-400' : 'text-green-400'}
+                    subtitle={networkStats.packetLoss > 5 ? 'High' : networkStats.packetLoss > 1 ? 'Medium' : 'Low'}
+                  />
+                  <StatCard 
+                    title="Buffer Delay" 
+                    value={networkStats.jitterBufferDelay} 
+                    unit="ms"
+                    color={networkStats.jitterBufferDelay > 150 ? 'text-yellow-400' : 'text-green-400'}
+                    subtitle={networkStats.jitterBufferDelay > 150 ? 'High' : 'Low'}
+                  />
+                </div>
                 
-                <div className="bg-gray-800/60 backdrop-blur-sm p-4 sm:p-5 rounded-xl border border-gray-700/50 shadow-lg">
-                  <NetworkQualityIndicator 
-                    latency={networkStats.averageLatency}
-                    jitter={networkStats.jitter}
-                    packetLoss={networkStats.packetLoss}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                  <BufferVisualizer 
+                    size={bufferInfo.size} 
+                    capacity={bufferInfo.capacity}
+                    isPlaying={bufferInfo.isPlaying}
                   />
                   
-                  <div className="mt-4 pt-4 border-t border-gray-600/30">
-                    <div className="flex justify-between text-sm sm:text-base mb-2">
-                      <span className="text-gray-400 font-medium">Total Errors:</span>
-                      <span className={`font-bold ${errorStats.totalErrors > 0 ? 'text-red-400' : 'text-green-400'}`}>
-                        {errorStats.totalErrors}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm sm:text-base">
-                      <span className="text-gray-400 font-medium">Recent Errors:</span>
-                      <span className={`font-bold ${errorStats.recentErrors > 0 ? 'text-yellow-400' : 'text-green-400'}`}>
-                        {errorStats.recentErrors}
-                      </span>
+                  <div className="bg-gray-800/60 backdrop-blur-sm p-4 sm:p-5 rounded-xl border border-gray-700/50 shadow-lg">
+                    <NetworkQualityIndicator 
+                      latency={networkStats.averageLatency}
+                      jitter={networkStats.jitter}
+                      packetLoss={networkStats.packetLoss}
+                    />
+                    
+                    <div className="mt-4 pt-4 border-t border-gray-600/30">
+                      <div className="flex justify-between text-sm sm:text-base mb-2">
+                        <span className="text-gray-400 font-medium">Total Errors:</span>
+                        <span className={`font-bold ${errorStats.totalErrors > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                          {errorStats.totalErrors}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm sm:text-base">
+                        <span className="text-gray-400 font-medium">Recent Errors:</span>
+                        <span className={`font-bold ${errorStats.recentErrors > 0 ? 'text-yellow-400' : 'text-green-400'}`}>
+                          {errorStats.recentErrors}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
+
+            {/* Right Column: Transcript & Performance */}
+            <div className="lg:col-span-3 xl:col-span-3 2xl:col-span-4 space-y-4 sm:space-y-6">
+              {/* Live Transcript Panel */}
+              <div className="bg-gray-800/80 backdrop-blur-sm p-4 sm:p-6 rounded-2xl shadow-2xl border border-gray-700/50 hover:border-gray-600/50 transition-all duration-300">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg sm:text-xl font-bold text-cyan-400 flex items-center gap-2">
+                    <Icons.Transcript />
+                    Live Transcript
+                  </h2>
+                  <div className="flex items-center gap-2 text-xs text-gray-400">
+                    <span className="px-2 py-1 bg-gray-700/50 rounded-full">
+                      {finalTranscripts.length} exchanges
+                    </span>
+                    {interimTranscript && (
+                      <span className="px-2 py-1 bg-yellow-600/30 text-yellow-300 rounded-full animate-pulse">
+                        Processing...
+                      </span>
+                    )}
+                  </div>
+                </div>
+                
+                                 <div className="space-y-4 max-h-96 overflow-y-auto scrollbar-thin">
+                   {finalTranscripts.map((transcript, index) => (
+                     <div key={index} className="bg-gray-700/50 rounded-lg p-4 border border-gray-600/30">
+                       <div className="mb-3">
+                         <p className="text-sm text-gray-400 mb-1">You said:</p>
+                         <p className="text-white font-medium">{transcript.text}</p>
+                       </div>
+                     </div>
+                   ))}
+                  
+                  {interimTranscript && (
+                    <div className="bg-yellow-600/20 border border-yellow-600/30 rounded-lg p-4">
+                      <p className="text-sm text-yellow-400 mb-1">Processing:</p>
+                      <p className="text-yellow-300 font-medium">{interimTranscript}</p>
+                    </div>
+                  )}
+                  
+                  {finalTranscripts.length === 0 && !interimTranscript && (
+                    <div className="text-center py-8 text-gray-500">
+                      <Icons.Microphone className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>Start speaking to see your transcript here...</p>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="mt-4 flex justify-between items-center">
+                  <button
+                    onClick={clearTranscripts}
+                    className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors text-sm"
+                  >
+                    Clear Transcript
+                  </button>
+                  <div className="text-xs text-gray-400">
+                    {finalTranscripts.length > 0 && (
+                      <span>Last exchange: {new Date().toLocaleTimeString()}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+                             {/* Word Highlight Display */}
+               <WordHighlightDisplay 
+                 finalTranscripts={finalTranscripts}
+                 currentSpokenWordIndex={currentSpokenWordIndex}
+                 interimTranscript={interimTranscript}
+                 aiResponse={aiResponse}
+                 className=""
+               />
+            </div>
           </div>
-        </div>
+        ) : currentVersion === 'v2' ? (
+          /* V2 Dashboard */
+          <VoiceAgentV2 />
+        ) : (
+          /* WebRTC Dashboard */
+          <VoiceAgentWebRTC />
+        )}
 
         {/* Footer */}
         <footer className="text-center mt-8 sm:mt-12 text-gray-500 text-sm sm:text-base">

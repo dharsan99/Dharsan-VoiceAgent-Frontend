@@ -479,8 +479,9 @@ export const useVoiceAgent = () => {
         console.log('Audio context state:', audioContextRef.current.state);
         console.log('Audio context sample rate:', audioContextRef.current.sampleRate);
 
-      const socket = new WebSocket(import.meta.env.VITE_WEBSOCKET_URL);
-      console.log('Connecting to WebSocket URL:', import.meta.env.VITE_WEBSOCKET_URL);
+      const websocketUrl = import.meta.env.VITE_WEBSOCKET_URL || 'wss://dharsan99--voice-ai-backend-run-app.modal.run/ws';
+      const socket = new WebSocket(websocketUrl);
+      console.log('Connecting to WebSocket URL:', websocketUrl);
       socketRef.current = socket;
 
       socket.onopen = async () => {
