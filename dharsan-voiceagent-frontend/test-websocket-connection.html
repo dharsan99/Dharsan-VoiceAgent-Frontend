@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Connection Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #333;
+            border-radius: 8px;
+        }
+        .success { border-color: #4CAF50; background-color: #1e3a1e; }
+        .error { border-color: #f44336; background-color: #3a1e1e; }
+        .connecting { border-color: #ff9800; background-color: #3a2e1e; }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #45a049; }
+        button:disabled { background-color: #666; cursor: not-allowed; }
+        .log {
+            background-color: #2a2a2a;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔗 WebSocket Connection Test</h1>
+    <p>Testing connections to Modal backend deployment</p>
+    
+    <div class="test-section">
+        <h3>V1 Backend Test</h3>
+        <button onclick="testV1Connection()">Test V1 Connection</button>
+        <button onclick="clearLog('v1-log')">Clear Log</button>
+        <div id="v1-status">Not tested</div>
+        <div id="v1-log" class="log"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>V2 Backend Test</h3>
+        <button onclick="testV2Connection()">Test V2 Connection</button>
+        <button onclick="clearLog('v2-log')">Clear Log</button>
+        <div id="v2-status">Not tested</div>
+        <div id="v2-log" class="log"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>V3 Backend Test</h3>
+        <button onclick="testV3Connection()">Test V3 Connection</button>
+        <button onclick="clearLog('v3-log')">Clear Log</button>
+        <div id="v3-status">Not tested</div>
+        <div id="v3-log" class="log"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Health Check Test</h3>
+        <button onclick="testHealthEndpoints()">Test Health Endpoints</button>
+        <button onclick="clearLog('health-log')">Clear Log</button>
+        <div id="health-status">Not tested</div>
+        <div id="health-log" class="log"></div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'https://dharsan99--voice-ai-backend-run-app.modal.run';
+        
+        function log(message, logId) {
+            const logElement = document.getElementById(logId);
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        function clearLog(logId) {
+            document.getElementById(logId).innerHTML = '';
+        }
+        
+        function updateStatus(statusId, message, className) {
+            const statusElement = document.getElementById(statusId);
+            statusElement.textContent = message;
+            statusElement.className = className;
+        }
+        
+        function testWebSocket(url, version) {
+            return new Promise((resolve, reject) => {
+                const logId = `${version.toLowerCase()}-log`;
+                const statusId = `${version.toLowerCase()}-status`;
+                
+                log(`Testing ${version} WebSocket connection to: ${url}`, logId);
+                updateStatus(statusId, 'Connecting...', 'connecting');
+                
+                const ws = new WebSocket(url);
+                let timeout;
+                
+                ws.onopen = () => {
+                    clearTimeout(timeout);
+                    log(`✅ ${version} WebSocket connected successfully!`, logId);
+                    updateStatus(statusId, 'Connected', 'success');
+                    
+                    // Send a test message
+                    ws.send(JSON.stringify({ type: 'test', message: 'Hello from frontend test' }));
+                    log(`📤 Sent test message to ${version}`, logId);
+                    
+                    // Close after 2 seconds
+                    setTimeout(() => {
+                        ws.close();
+                        log(`🔌 ${version} WebSocket closed`, logId);
+                    }, 2000);
+                    
+                    resolve(true);
+                };
+                
+                ws.onmessage = (event) => {
+                    log(`📥 ${version} received: ${event.data}`, logId);
+                };
+                
+                ws.onerror = (error) => {
+                    clearTimeout(timeout);
+                    log(`❌ ${version} WebSocket error: ${error}`, logId);
+                    updateStatus(statusId, 'Connection failed', 'error');
+                    reject(error);
+                };
+                
+                ws.onclose = (event) => {
+                    clearTimeout(timeout);
+                    if (event.code !== 1000) {
+                        log(`❌ ${version} WebSocket closed with code: ${event.code}`, logId);
+                        updateStatus(statusId, `Closed with code ${event.code}`, 'error');
+                    }
+                };
+                
+                // 10 second timeout
+                timeout = setTimeout(() => {
+                    ws.close();
+                    log(`⏰ ${version} WebSocket connection timeout`, logId);
+                    updateStatus(statusId, 'Connection timeout', 'error');
+                    reject(new Error('Connection timeout'));
+                }, 10000);
+            });
+        }
+        
+        async function testV1Connection() {
+            try {
+                await testWebSocket(`${BACKEND_URL.replace('https://', 'wss://')}/ws`, 'V1');
+            } catch (error) {
+                console.error('V1 connection test failed:', error);
+            }
+        }
+        
+        async function testV2Connection() {
+            try {
+                await testWebSocket(`${BACKEND_URL.replace('https://', 'wss://')}/ws`, 'V2');
+            } catch (error) {
+                console.error('V2 connection test failed:', error);
+            }
+        }
+        
+        async function testV3Connection() {
+            try {
+                await testWebSocket(`${BACKEND_URL.replace('https://', 'wss://')}/ws`, 'V3');
+            } catch (error) {
+                console.error('V3 connection test failed:', error);
+            }
+        }
+        
+        async function testHealthEndpoints() {
+            const logId = 'health-log';
+            const statusId = 'health-status';
+            
+            log('Testing health endpoints...', logId);
+            updateStatus(statusId, 'Testing...', 'connecting');
+            
+            try {
+                // Test root health
+                const rootResponse = await fetch(`${BACKEND_URL}/health`);
+                const rootData = await rootResponse.json();
+                log(`✅ Root health: ${JSON.stringify(rootData)}`, logId);
+                
+                // Test V1 health
+                const v1Response = await fetch(`${BACKEND_URL}/health`);
+                const v1Data = await v1Response.json();
+                log(`✅ V1 health: ${JSON.stringify(v1Data)}`, logId);
+                
+                // Test V2 health
+                const v2Response = await fetch(`${BACKEND_URL}/health`);
+                const v2Data = await v2Response.json();
+                log(`✅ V2 health: ${JSON.stringify(v2Data)}`, logId);
+                
+                // Test V3 health
+                const v3Response = await fetch(`${BACKEND_URL}/health`);
+                const v3Data = await v3Response.json();
+                log(`✅ V3 health: ${JSON.stringify(v3Data)}`, logId);
+                
+                updateStatus(statusId, 'All health checks passed', 'success');
+            } catch (error) {
+                log(`❌ Health check failed: ${error}`, logId);
+                updateStatus(statusId, 'Health check failed', 'error');
+            }
+        }
+    </script>
+</body>
+</html> 

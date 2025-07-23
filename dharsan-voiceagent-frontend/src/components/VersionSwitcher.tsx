@@ -37,15 +37,20 @@ const VersionSwitcher: React.FC<VersionSwitcherProps> = ({
   const fetchVersions = async () => {
     try {
       setLoading(true);
+      console.log('Fetching versions from backend...');
       // Use the same base URL as the WebSocket connection
-      const baseUrl = (import.meta.env.VITE_WEBSOCKET_URL || 'wss://dharsan99--voice-ai-backend-run-app.modal.run/ws').replace('ws://', 'http://').replace('wss://', 'https://').replace('/ws', '');
+      const baseUrl = (import.meta.env.VITE_WEBSOCKET_URL || 'wss://dharsan99--voice-ai-backend-unified-standalone-run-app.modal.run/v1/ws').replace('ws://', 'http://').replace('wss://', 'https://').replace('/ws', '');
+      console.log('Base URL:', baseUrl);
       const response = await fetch(`${baseUrl}/versions`);
+      console.log('Response status:', response.status);
       if (!response.ok) {
-        throw new Error('Failed to fetch version information');
+        throw new Error(`Failed to fetch version information: ${response.status} ${response.statusText}`);
       }
       const data = await response.json();
+      console.log('Versions data:', data);
       setVersions(data.versions);
     } catch (err) {
+      console.error('Error fetching versions:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setLoading(false);

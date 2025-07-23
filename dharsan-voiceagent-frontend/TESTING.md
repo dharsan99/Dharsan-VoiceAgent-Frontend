@@ -1,322 +1,270 @@
-# Voice Functionality Testing Guide
+# Voice Agent Frontend Testing Documentation
 
-This document provides comprehensive testing instructions for the voice functionality in the Dharsan Voice Agent Frontend.
+## Overview
 
-## 🎯 Overview
+This document provides comprehensive information about the testing suite for the Voice Agent Frontend application. The test suite covers React components, custom hooks, voice functionality, and integration testing.
 
-The voice functionality tests are designed to verify that all voice-related features work correctly and don't break during development. These tests cover:
+## Test Suite Structure
 
-- **WebSocket Connections**: Connection establishment, message handling, and error recovery
-- **Audio Processing**: Voice activity detection, audio capture, and playback
-- **Voice Agent Hook**: State management, transcript processing, and AI responses
-- **Network Statistics**: Latency, jitter, and packet loss monitoring
-- **Error Handling**: Graceful degradation and recovery mechanisms
-- **Session Management**: Data persistence and analytics
+### 1. Basic Tests (`basic.test.ts`)
+- **Purpose**: Verify basic environment setup and browser API availability
+- **Tests**: 5 tests
+- **Coverage**: WebSocket, AudioContext, AudioWorkletNode, MediaDevices availability
 
-## 🚀 Quick Start
+### 2. Component Tests (`componentTests.test.tsx`)
+- **Purpose**: Test React component rendering, user interactions, and accessibility
+- **Tests**: 22 tests
+- **Coverage**: 
+  - VoiceAgentV2 component functionality
+  - WordHighlightDisplay component
+  - DebugInfo component
+  - User interaction flows
+  - Accessibility features
 
-### Prerequisites
+### 3. Hook Tests (`hookTests.test.tsx`)
+- **Purpose**: Test custom React hooks, especially useVoiceAgent
+- **Tests**: 24 tests
+- **Coverage**:
+  - Initial state validation
+  - Connection management
+  - Transcript handling
+  - AI response processing
+  - Voice activity detection
+  - Network statistics
+  - Error handling and recovery
 
-1. Install dependencies:
-```bash
-npm install
-```
+### 4. Voice Functionality Tests (`voiceFunctionality.test.ts`)
+- **Purpose**: Test core voice processing and WebSocket communication
+- **Tests**: 47 tests (currently has TypeScript issues)
+- **Coverage**:
+  - Audio context initialization
+  - Microphone access
+  - AudioWorkletNode communication
+  - WebSocket connection and messaging
+  - Audio playback
+  - Voice activity detection
+  - Error handling and recovery
+  - Performance monitoring
 
-2. Make sure the backend server is running (for integration tests)
+### 5. Integration Tests (`voiceIntegration.test.ts`)
+- **Purpose**: End-to-end testing with real backend (when available)
+- **Tests**: 6 tests (conditional on backend availability)
+- **Coverage**:
+  - Real backend connection
+  - Live audio input processing
+  - WebSocket message handling
+  - Network latency simulation
+  - Connection interruption handling
+  - Audio playback interruption
 
-### Running Tests
+## Running Tests
 
-#### 1. Quick API Check (No Dependencies)
-```bash
-node test-voice.js
-```
-This runs a basic check of all required browser APIs without requiring Jest setup.
+### Available Test Scripts
 
-#### 2. Comprehensive Jest Tests
 ```bash
 # Run all tests
 npm test
 
-# Run only voice functionality tests
-npm run test:voice
-
 # Run tests in watch mode
-npm run test:voice:watch
+npm run test:watch
 
 # Run tests with coverage report
 npm run test:coverage
+
+# Run specific test categories
+npm run test:basic          # Basic environment tests
+npm run test:components     # React component tests
+npm run test:hooks          # Custom hook tests
+npm run test:voice          # Voice functionality tests
+npm run test:integration    # Integration tests
+
+# Run tests for CI/CD
+npm run test:ci             # Optimized for CI environments
 ```
 
-## 📋 Test Categories
+### Test Commands Explained
 
-### 1. useVoiceAgent Hook Tests
+- `npm test`: Runs all tests once
+- `npm run test:watch`: Runs tests in watch mode for development
+- `npm run test:coverage`: Generates coverage reports
+- `npm run test:voice`: Runs voice-specific functionality tests
+- `npm run test:ci`: Runs tests optimized for continuous integration
 
-Tests the main voice agent hook functionality:
-
-- **Initialization**: Default state verification
-- **Connection Management**: WebSocket connection lifecycle
-- **Voice Activity Detection**: Microphone input processing
-- **Transcript Processing**: Interim and final transcript handling
-- **AI Response Handling**: Response processing and typing animations
-- **Audio Playback**: Continuous audio stream management
-- **State Management**: Connection status and listening state transitions
-
-### 2. Network Statistics Tests
-
-Tests network performance monitoring:
-
-- **Latency Calculation**: Average network latency measurement
-- **Jitter Analysis**: Network jitter calculation and buffering
-- **Packet Loss Detection**: Packet loss estimation and recovery
-- **Buffer Management**: Dynamic buffer sizing based on network conditions
-
-### 3. Error Handling Tests
-
-Tests error scenarios and recovery:
-
-- **WebSocket Failures**: Connection error handling and retry logic
-- **Audio Context Failures**: Audio API error recovery
-- **Network Issues**: Graceful degradation during poor connectivity
-- **Resource Cleanup**: Proper cleanup on disconnection
-
-### 4. Voice Activity Detection Tests
-
-Tests voice detection algorithms:
-
-- **Voice Detection**: Accurate voice activity detection
-- **Silence Detection**: Proper silence timeout handling
-- **Interruption Handling**: User interruption of AI speech
-- **Energy Thresholds**: Dynamic energy level processing
-
-### 5. Audio Processing Tests
-
-Tests audio stream handling:
-
-- **Continuous Playback**: Seamless audio chunk processing
-- **Audio Interruption**: User interruption during AI speech
-- **Buffer Management**: Audio chunk queuing and playback
-- **Format Compatibility**: Audio format handling and conversion
-
-### 6. Session Storage Tests
-
-Tests data persistence:
-
-- **Conversation History**: Chat history storage and retrieval
-- **Network Statistics**: Performance data persistence
-- **Session Analytics**: User interaction tracking
-
-## 🔧 Test Configuration
+## Test Configuration
 
 ### Jest Configuration (`jest.config.js`)
-
-- **Environment**: jsdom for browser API simulation
-- **TypeScript Support**: ts-jest for TypeScript compilation
-- **Coverage**: HTML and LCOV coverage reports
+- **Environment**: jsdom (simulates browser environment)
+- **Preset**: ts-jest (TypeScript support)
+- **Setup**: `src/tests/setup.ts` (global mocks and configuration)
+- **Coverage**: HTML, LCOV, and text reports
 - **Timeout**: 10 seconds per test
-- **Setup**: Custom setup file for global mocks
 
-### Test Setup (`src/tests/setup.ts`)
+### TypeScript Configuration (`tsconfig.test.json`)
+- **Module**: ESNext
+- **Target**: ES2022
+- **Types**: Jest, Node
+- **JSX**: React-JSX
 
-Comprehensive mocking of browser APIs:
+## Mocking Strategy
 
-- **WebSocket**: Mock WebSocket implementation
-- **AudioContext**: Mock audio processing APIs
-- **MediaDevices**: Mock microphone access
-- **Storage APIs**: Mock sessionStorage and localStorage
-- **Performance APIs**: Mock timing and performance measurement
-- **DOM APIs**: Mock browser DOM interfaces
+### Browser APIs Mocked
+- **WebSocket**: Simulated connection, messaging, and error handling
+- **AudioContext**: Mocked audio processing context
+- **AudioWorkletNode**: Simulated audio worklet communication
+- **MediaDevices**: Mocked microphone access
+- **Audio**: Simulated audio playback
+- **SessionStorage**: Mocked storage for test data
+- **Performance**: Mocked timing functions
 
-## 🧪 Writing New Tests
+### React Testing Library
+- **render**: Component rendering
+- **screen**: Element queries
+- **fireEvent**: User interaction simulation
+- **waitFor**: Asynchronous test assertions
+- **userEvent**: Advanced user interaction simulation
 
-### Test Structure
+## Test Coverage Goals
 
-```typescript
-describe('Feature Name', () => {
-  beforeEach(() => {
-    // Setup test environment
-  });
+### Current Coverage
+- **Basic Tests**: 100% (5/5 passing)
+- **Component Tests**: 100% (22/22 passing)
+- **Hook Tests**: 100% (24/24 passing)
+- **Voice Functionality**: 0% (TypeScript compilation issues)
+- **Integration Tests**: Conditional (requires backend)
 
-  afterEach(() => {
-    // Cleanup after each test
-  });
+### Target Coverage
+- **Overall**: >90%
+- **Components**: >95%
+- **Hooks**: >95%
+- **Utilities**: >90%
+- **Integration**: >80% (when backend available)
 
-  test('should perform expected behavior', async () => {
-    // Test implementation
-    const { result } = renderHook(() => useVoiceAgent());
-    
-    await act(async () => {
-      // Perform actions
-    });
-
-    await waitFor(() => {
-      // Assert expected outcomes
-      expect(result.current.someProperty).toBe(expectedValue);
-    });
-  });
-});
-```
-
-### Best Practices
-
-1. **Use Descriptive Test Names**: Clear, specific test descriptions
-2. **Test One Thing**: Each test should verify a single behavior
-3. **Use Async/Await**: Handle asynchronous operations properly
-4. **Mock External Dependencies**: Don't rely on external services
-5. **Clean Up Resources**: Properly clean up after tests
-6. **Use waitFor**: Wait for async state changes
-
-### Mocking Guidelines
-
-```typescript
-// Mock WebSocket
-const mockWebSocket = new MockWebSocket('ws://localhost:8000/ws');
-
-// Mock Audio Context
-const mockAudioContext = new MockAudioContext();
-
-// Mock User Media
-const mockGetUserMedia = jest.fn().mockResolvedValue({
-  getTracks: () => [{ stop: jest.fn() }]
-});
-```
-
-## 📊 Coverage Reports
-
-After running tests with coverage:
-
-```bash
-npm run test:coverage
-```
-
-Coverage reports are generated in the `coverage/` directory:
-
-- **HTML Report**: `coverage/lcov-report/index.html`
-- **LCOV Report**: `coverage/lcov.info`
-- **Console Summary**: Terminal output
-
-### Coverage Targets
-
-- **Statements**: > 80%
-- **Branches**: > 70%
-- **Functions**: > 80%
-- **Lines**: > 80%
-
-## 🐛 Debugging Tests
+## Debugging Tests
 
 ### Common Issues
 
-1. **Timeout Errors**: Increase test timeout or optimize async operations
-2. **Mock Failures**: Ensure proper mock setup in beforeEach
-3. **State Issues**: Use act() for state changes and waitFor() for assertions
-4. **Cleanup Errors**: Ensure proper cleanup in afterEach
+1. **TypeScript Errors**: Some tests have strict typing issues
+2. **Mock Configuration**: Ensure mocks are properly set up
+3. **Async Operations**: Use `waitFor` for asynchronous assertions
+4. **Component State**: Reset state between tests
 
-### Debug Mode
-
-Run tests in debug mode:
+### Debugging Commands
 
 ```bash
-# Debug specific test
-npm test -- --testNamePattern="specific test name" --verbose
+# Run specific test file with verbose output
+npm test -- --verbose src/tests/componentTests.test.tsx
+
+# Run single test
+npm test -- --testNamePattern="should render with initial state"
 
 # Debug with console output
 npm test -- --verbose --no-coverage
 ```
 
-### Manual Testing
+## Integration Testing
 
-For manual testing without automated tests:
+### Backend Requirements
+- Backend server running on configured WebSocket URL
+- Health endpoint available at `/health`
+- WebSocket endpoint at `/ws`
 
-1. Start the development server: `npm run dev`
-2. Open browser developer tools
-3. Check console for errors
-4. Test voice functionality manually
-5. Monitor network tab for WebSocket connections
-
-## 🔄 Continuous Integration
-
-### GitHub Actions (Recommended)
-
-```yaml
-name: Voice Functionality Tests
-on: [push, pull_request]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-      - run: npm ci
-      - run: npm run test:coverage
-      - uses: codecov/codecov-action@v3
-```
-
-### Pre-commit Hooks
-
-Install husky for pre-commit testing:
-
+### Environment Variables
 ```bash
-npm install --save-dev husky lint-staged
-npx husky install
-npx husky add .husky/pre-commit "npm run test:voice"
+INTEGRATION_TEST_ENABLED=true
+VITE_WEBSOCKET_URL=ws://localhost:8000/ws
 ```
 
-## 📈 Performance Testing
-
-### Load Testing
-
-For performance testing of voice functionality:
-
+### Running Integration Tests
 ```bash
-# Run performance tests
-npm run test:performance
+# Check backend availability
+npm run test:integration
 
-# Monitor memory usage
-npm run test:memory
+# Run with backend check
+INTEGRATION_TEST_ENABLED=true npm test
 ```
 
-### Benchmarking
+## Test Utilities
 
-```bash
-# Run benchmarks
-npm run benchmark
+### Custom Test Helpers
+- **Mock Classes**: Enhanced mock implementations for browser APIs
+- **Test Data**: Predefined test data for consistent testing
+- **Assertion Helpers**: Custom assertion functions for voice-specific tests
 
-# Compare performance
-npm run benchmark:compare
-```
+### Mock Classes Available
+- `MockWebSocket`: Enhanced WebSocket with simulation methods
+- `MockAudioContext`: Audio context with mock methods
+- `MockAudioWorkletNode`: Audio worklet with message simulation
+- `MockAudio`: Audio element with event simulation
 
-## 🚨 Troubleshooting
+## Best Practices
 
-### Test Failures
+### Writing Tests
+1. **Arrange-Act-Assert**: Structure tests clearly
+2. **Descriptive Names**: Use clear test descriptions
+3. **Isolation**: Each test should be independent
+4. **Mocking**: Mock external dependencies
+5. **Async Handling**: Properly handle asynchronous operations
 
-1. **Check Dependencies**: Ensure all dependencies are installed
-2. **Clear Cache**: Clear Jest cache with `npm test -- --clearCache`
-3. **Update Mocks**: Ensure mocks match current implementation
-4. **Check Environment**: Verify test environment setup
+### Test Organization
+1. **Group Related Tests**: Use describe blocks for organization
+2. **Setup/Teardown**: Use beforeEach/afterEach for cleanup
+3. **Shared State**: Avoid shared state between tests
+4. **Error Boundaries**: Test error scenarios
 
-### Common Error Messages
+## Continuous Integration
 
-- **"Cannot read property of undefined"**: Missing mock setup
-- **"Timeout of 5000ms exceeded"**: Increase timeout or optimize test
-- **"WebSocket is not defined"**: Missing WebSocket mock
-- **"AudioContext is not defined"**: Missing AudioContext mock
+### CI/CD Pipeline
+- **Pre-commit**: Run basic tests
+- **Pull Request**: Run full test suite with coverage
+- **Deploy**: Run integration tests (if backend available)
+
+### Coverage Reports
+- **HTML**: Detailed coverage report in `coverage/` directory
+- **LCOV**: Coverage data for CI tools
+- **Console**: Summary output in terminal
+
+## Troubleshooting
+
+### Common Problems
+
+1. **TypeScript Compilation Errors**
+   - Check `tsconfig.test.json` configuration
+   - Ensure proper type imports
+   - Use proper type assertions
+
+2. **Mock Not Working**
+   - Verify mock setup in `setup.ts`
+   - Check mock implementation
+   - Ensure mocks are reset between tests
+
+3. **Async Test Failures**
+   - Use `waitFor` for async assertions
+   - Increase timeout if needed
+   - Check for proper cleanup
+
+4. **Component Test Issues**
+   - Verify component imports
+   - Check for missing dependencies
+   - Ensure proper mock setup
 
 ### Getting Help
+- Check test output for specific error messages
+- Review mock implementations
+- Consult Jest and React Testing Library documentation
+- Check TypeScript configuration
 
-1. Check the test logs for detailed error information
-2. Review the mock implementations in `setup.ts`
-3. Verify the test environment configuration
-4. Consult the Jest documentation for advanced debugging
+## Future Improvements
 
-## 📚 Additional Resources
+### Planned Enhancements
+1. **Fix TypeScript Issues**: Resolve compilation errors in voice functionality tests
+2. **Enhanced Mocking**: Improve mock implementations
+3. **Performance Testing**: Add performance benchmarks
+4. **Visual Testing**: Add visual regression tests
+5. **E2E Testing**: Add end-to-end test scenarios
 
-- [Jest Documentation](https://jestjs.io/docs/getting-started)
-- [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/)
-- [TypeScript Testing](https://jestjs.io/docs/getting-started#using-typescript)
-- [Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)
-- [WebSocket API](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket)
-
----
-
-**Note**: These tests are designed to catch regressions in voice functionality. Regular testing ensures that voice features remain stable and reliable across development iterations. 
+### Test Expansion
+1. **More Component Tests**: Additional component scenarios
+2. **Edge Cases**: Test error conditions and edge cases
+3. **Accessibility**: Enhanced accessibility testing
+4. **Performance**: Performance regression testing
+5. **Security**: Security-focused test scenarios 

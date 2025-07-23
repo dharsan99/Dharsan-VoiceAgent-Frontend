@@ -23,5 +23,6 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src", "postcss.config.js"]
+  "include": ["src", "postcss.config.js"],
+  "exclude": ["src/tests/**/*", "**/*.test.ts", "**/*.test.tsx"]
 }

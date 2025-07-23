@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Voice Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background-color: #2a2a2a;
+        }
+        .success { border-color: #4CAF50; }
+        .error { border-color: #f44336; }
+        .processing { border-color: #ff9800; }
+        
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 8px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        button:hover { background-color: #45a049; }
+        button:disabled { background-color: #666; cursor: not-allowed; }
+        
+        .log {
+            background-color: #1a1a1a;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 15px;
+            border: 1px solid #444;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .status-connected { background-color: #4CAF50; }
+        .status-disconnected { background-color: #f44336; }
+        .status-connecting { background-color: #ff9800; }
+        
+        .test-message {
+            background-color: #1a1a1a;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+            border: 1px solid #444;
+        }
+        
+        .test-message.user {
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .test-message.ai {
+            border-left: 4px solid #2196F3;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎤 Simple Voice Test</h1>
+    <p>Testing WebSocket communication and voice processing without audio worklet</p>
+    
+    <div class="test-section">
+        <h3>🔗 Connection Test</h3>
+        <div>
+            <span class="status-indicator status-disconnected" id="connection-status"></span>
+            <span id="connection-text">Disconnected</span>
+        </div>
+        <button onclick="connectToBackend()">Connect to Backend</button>
+        <button onclick="disconnectFromBackend()">Disconnect</button>
+        <div id="connection-log" class="log"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>💬 Voice Processing Test</h3>
+        <button onclick="sendTestMessage('Hello, how are you?')">Test: "Hello, how are you?"</button>
+        <button onclick="sendTestMessage('What is the weather like?')">Test: "What is the weather like?"</button>
+        <button onclick="sendTestMessage('Tell me a joke')">Test: "Tell me a joke"</button>
+        <button onclick="sendTestMessage('What is 15 plus 27?')">Test: "What is 15 plus 27?"</button>
+        <button onclick="sendCustomMessage()">Custom Message</button>
+        <div id="voice-log" class="log"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>📝 Conversation History</h3>
+        <div id="conversation-history"></div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'https://dharsan99--voice-ai-backend-run-app.modal.run';
+        let websocket = null;
+        let isConnected = false;
+        let conversationHistory = [];
+        
+        function log(message, logId) {
+            const logElement = document.getElementById(logId);
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        function updateStatus(status, text) {
+            const statusElement = document.getElementById('connection-status');
+            const textElement = document.getElementById('connection-text');
+            statusElement.className = `status-indicator status-${status}`;
+            textElement.textContent = text;
+        }
+        
+        function addToConversation(userMessage, aiResponse) {
+            conversationHistory.push({ user: userMessage, ai: aiResponse, timestamp: new Date() });
+            updateConversationDisplay();
+        }
+        
+        function updateConversationDisplay() {
+            const historyDiv = document.getElementById('conversation-history');
+            historyDiv.innerHTML = '';
+            
+            conversationHistory.forEach((entry, index) => {
+                const userDiv = document.createElement('div');
+                userDiv.className = 'test-message user';
+                userDiv.innerHTML = `<strong>User:</strong> ${entry.user}`;
+                
+                const aiDiv = document.createElement('div');
+                aiDiv.className = 'test-message ai';
+                aiDiv.innerHTML = `<strong>AI:</strong> ${entry.ai}`;
+                
+                historyDiv.appendChild(userDiv);
+                historyDiv.appendChild(aiDiv);
+            });
+        }
+        
+        async function connectToBackend() {
+            try {
+                log('Connecting to backend...', 'connection-log');
+                updateStatus('connecting', 'Connecting...');
+                
+                websocket = new WebSocket(`${BACKEND_URL.replace('https://', 'wss://')}/ws`);
+                
+                websocket.onopen = () => {
+                    log('✅ Connected to backend successfully!', 'connection-log');
+                    updateStatus('connected', 'Connected');
+                    isConnected = true;
+                };
+                
+                websocket.onmessage = (event) => {
+                    log(`📥 Received: ${event.data}`, 'voice-log');
+                    
+                    try {
+                        const message = JSON.parse(event.data);
+                        handleMessage(message);
+                    } catch (error) {
+                        // Handle plain text messages
+                        if (event.data.includes('received:')) {
+                            log('🔄 Audio echo received', 'voice-log');
+                        } else {
+                            log(`📝 Plain text: ${event.data}`, 'voice-log');
+                        }
+                    }
+                };
+                
+                websocket.onclose = (event) => {
+                    log(`🔌 Connection closed: ${event.code}`, 'connection-log');
+                    updateStatus('disconnected', 'Disconnected');
+                    isConnected = false;
+                };
+                
+                websocket.onerror = (error) => {
+                    log(`❌ Connection error: ${error}`, 'connection-log');
+                    updateStatus('disconnected', 'Error');
+                };
+                
+            } catch (error) {
+                log(`❌ Failed to connect: ${error.message}`, 'connection-log');
+                updateStatus('disconnected', 'Failed');
+            }
+        }
+        
+        function disconnectFromBackend() {
+            if (websocket) {
+                websocket.close();
+                websocket = null;
+            }
+        }
+        
+        function handleMessage(message) {
+            switch (message.type) {
+                case 'transcript':
+                    log(`🎤 Transcript: ${message.text}`, 'voice-log');
+                    break;
+                    
+                case 'ai_response':
+                    log(`🤖 AI Response: ${message.response}`, 'voice-log');
+                    // Add to conversation history
+                    if (message.response) {
+                        addToConversation('User input', message.response);
+                    }
+                    break;
+                    
+                case 'error':
+                    log(`❌ Error: ${message.message}`, 'voice-log');
+                    break;
+                    
+                default:
+                    log(`📨 Unknown message type: ${message.type}`, 'voice-log');
+            }
+        }
+        
+        function sendTestMessage(text) {
+            if (!isConnected) {
+                log('❌ Not connected to backend', 'voice-log');
+                return;
+            }
+            
+            log(`🧪 Sending test message: "${text}"`, 'voice-log');
+            
+            // Send as a test message
+            websocket.send(JSON.stringify({
+                type: 'test_message',
+                text: text,
+                timestamp: new Date().toISOString()
+            }));
+            
+            // Also send as a simulated transcript
+            websocket.send(JSON.stringify({
+                type: 'transcript',
+                text: text,
+                is_final: true,
+                confidence: 0.95
+            }));
+        }
+        
+        function sendCustomMessage() {
+            const text = prompt('Enter your message:');
+            if (text) {
+                sendTestMessage(text);
+            }
+        }
+        
+        // Test scenarios
+        function runTestScenario(scenario) {
+            const scenarios = {
+                greeting: "Hello, how are you today?",
+                weather: "What's the weather like in San Francisco?",
+                math: "What is 15 plus 27?",
+                joke: "Tell me a funny joke"
+            };
+            
+            const text = scenarios[scenario];
+            if (text) {
+                sendTestMessage(text);
+            }
+        }
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            disconnectFromBackend();
+        });
+        
+        // Initialize
+        updateStatus('disconnected', 'Disconnected');
+    </script>
+</body>
+</html> 

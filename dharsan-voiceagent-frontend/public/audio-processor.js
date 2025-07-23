@@ -21,6 +21,11 @@ class AudioProcessor extends AudioWorkletProcessor {
     if (input.length > 0) {
       const inputChannel = input[0];
       
+      // Debug: Log first few samples occasionally
+      if (Math.random() < 0.001) { // Log 0.1% of the time
+        console.log('Audio processor receiving data:', inputChannel.length, 'samples, first sample:', inputChannel[0]);
+      }
+      
       // Fill audio buffer
       for (let i = 0; i < inputChannel.length; i++) {
         this.audioBuffer[this.bufferIndex] = inputChannel[i];
@@ -43,6 +48,11 @@ class AudioProcessor extends AudioWorkletProcessor {
       energy += this.audioBuffer[i] * this.audioBuffer[i];
     }
     energy = Math.sqrt(energy / this.bufferSize);
+    
+    // Debug: Log energy occasionally
+    if (Math.random() < 0.01) { // Log 1% of the time
+      console.log('Audio energy:', energy.toFixed(6));
+    }
     
     // Update voice activity buffer
     this.voiceActivityBuffer[this.voiceActivityIndex] = energy;
@@ -74,8 +84,8 @@ class AudioProcessor extends AudioWorkletProcessor {
       }
     }
     
-    // Convert to 16-bit PCM and downsample if needed
-    const audioData = this.downsampleAndConvert(this.audioBuffer);
+    // Convert to 16-bit PCM (no resampling needed since we're already at 16kHz)
+    const audioData = this.convertToInt16(this.audioBuffer);
     
     // Send audio data and voice activity status
     this.port.postMessage({
@@ -85,20 +95,17 @@ class AudioProcessor extends AudioWorkletProcessor {
     });
   }
 
-  downsampleAndConvert(float32Array) {
-    // Simple downsampling: take every nth sample
-    const downsampleFactor = 44100 / this.sampleRate; // Use 44.1kHz as source rate
-    const downsampledLength = Math.floor(float32Array.length / downsampleFactor);
-    const downsampled = new Int16Array(downsampledLength);
+  convertToInt16(float32Array) {
+    // Convert float32 (-1 to 1) to int16 (-32768 to 32767) without resampling
+    const int16Array = new Int16Array(float32Array.length);
     
-    for (let i = 0; i < downsampledLength; i++) {
-      const sourceIndex = Math.floor(i * downsampleFactor);
+    for (let i = 0; i < float32Array.length; i++) {
       // Convert float32 (-1 to 1) to int16 (-32768 to 32767)
-      const sample = Math.max(-1, Math.min(1, float32Array[sourceIndex]));
-      downsampled[i] = sample * 32767;
+      const sample = Math.max(-1, Math.min(1, float32Array[i]));
+      int16Array[i] = sample * 32767;
     }
     
-    return downsampled.buffer;
+    return int16Array.buffer;
   }
 }
 

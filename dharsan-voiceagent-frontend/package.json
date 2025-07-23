@@ -12,7 +12,13 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:voice": "jest --testNamePattern='Voice Functionality'",
-    "test:voice:watch": "jest --testNamePattern='Voice Functionality' --watch"
+    "test:voice:watch": "jest --testNamePattern='Voice Functionality' --watch",
+    "test:components": "jest --testPathPattern=componentTests.test.tsx",
+    "test:hooks": "jest --testPathPattern=hookTests.test.tsx",
+    "test:integration": "jest --testPathPattern=voiceIntegration.test.ts",
+    "test:basic": "jest --testPathPattern=basic.test.ts",
+    "test:all": "jest --passWithNoTests",
+    "test:ci": "jest --ci --coverage --watchAll=false"
   },
   "dependencies": {
     "chart.js": "^4.5.0",

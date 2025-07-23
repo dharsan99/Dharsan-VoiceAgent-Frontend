@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #333;
+            border-radius: 8px;
+        }
+        .success { border-color: #4CAF50; background-color: #1e3a1e; }
+        .error { border-color: #f44336; background-color: #3a1e1e; }
+        .connecting { border-color: #ff9800; background-color: #3a2e1e; }
+        .info { border-color: #2196F3; background-color: #1e3a3a; }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #45a049; }
+        button:disabled { background-color: #666; cursor: not-allowed; }
+        .log {
+            background-color: #2a2a2a;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-connected { background-color: #4CAF50; }
+        .status-disconnected { background-color: #f44336; }
+        .status-connecting { background-color: #ff9800; }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .audio-visualizer {
+            width: 100%;
+            height: 60px;
+            background-color: #2a2a2a;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎤 Frontend Integration Test</h1>
+    <p>Testing complete frontend integration with Modal backend</p>
+    
+    <div class="grid">
+        <div class="test-section">
+            <h3>🔗 Connection Status</h3>
+            <div>
+                <span class="status-indicator status-disconnected" id="v1-status-indicator"></span>
+                <span>V1 Backend</span>
+            </div>
+            <div>
+                <span class="status-indicator status-disconnected" id="v2-status-indicator"></span>
+                <span>V2 Backend</span>
+            </div>
+            <div>
+                <span class="status-indicator status-disconnected" id="v3-status-indicator"></span>
+                <span>V3 Backend</span>
+            </div>
+            <button onclick="testAllConnections()">Test All Connections</button>
+            <button onclick="clearLog('connection-log')">Clear Log</button>
+            <div id="connection-log" class="log"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>🎵 Audio Processing Test</h3>
+            <button onclick="testAudioCapture()">Test Microphone</button>
+            <button onclick="testAudioPlayback()">Test Audio Output</button>
+            <button onclick="clearLog('audio-log')">Clear Log</button>
+            <div class="audio-visualizer" id="audio-visualizer">
+                <span>Audio Visualizer</span>
+            </div>
+            <div id="audio-log" class="log"></div>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>💬 Voice Agent Simulation</h3>
+        <button onclick="simulateVoiceAgent()">Start Voice Agent Test</button>
+        <button onclick="stopVoiceAgent()">Stop Test</button>
+        <button onclick="clearLog('voice-log')">Clear Log</button>
+        <div id="voice-status">Ready to test</div>
+        <div id="voice-log" class="log"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>📊 Performance Metrics</h3>
+        <button onclick="testPerformance()">Run Performance Test</button>
+        <button onclick="clearLog('performance-log')">Clear Log</button>
+        <div id="performance-metrics"></div>
+        <div id="performance-log" class="log"></div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'https://dharsan99--voice-ai-backend-run-app.modal.run';
+        let voiceAgentSocket = null;
+        let audioContext = null;
+        let mediaStream = null;
+        let isRecording = false;
+        
+        function log(message, logId) {
+            const logElement = document.getElementById(logId);
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        function clearLog(logId) {
+            document.getElementById(logId).innerHTML = '';
+        }
+        
+        function updateStatusIndicator(version, status) {
+            const indicator = document.getElementById(`${version}-status-indicator`);
+            indicator.className = `status-indicator status-${status}`;
+        }
+        
+        async function testAllConnections() {
+            const versions = ['v1', 'v2', 'v3'];
+            
+            for (const version of versions) {
+                try {
+                    updateStatusIndicator(version, 'connecting');
+                    log(`Testing ${version.toUpperCase()} connection...`, 'connection-log');
+                    
+                    const ws = new WebSocket(`${BACKEND_URL.replace('https://', 'wss://')}/ws`);
+                    
+                    await new Promise((resolve, reject) => {
+                        const timeout = setTimeout(() => {
+                            reject(new Error('Connection timeout'));
+                        }, 5000);
+                        
+                        ws.onopen = () => {
+                            clearTimeout(timeout);
+                            updateStatusIndicator(version, 'connected');
+                            log(`✅ ${version.toUpperCase()} connected successfully`, 'connection-log');
+                            
+                            // Send test message
+                            ws.send(JSON.stringify({ type: 'test', message: 'Frontend integration test' }));
+                            
+                            // Close after 1 second
+                            setTimeout(() => {
+                                ws.close();
+                                updateStatusIndicator(version, 'disconnected');
+                            }, 1000);
+                            
+                            resolve();
+                        };
+                        
+                        ws.onerror = (error) => {
+                            clearTimeout(timeout);
+                            updateStatusIndicator(version, 'disconnected');
+                            log(`❌ ${version.toUpperCase()} connection failed: ${error}`, 'connection-log');
+                            reject(error);
+                        };
+                    });
+                    
+                } catch (error) {
+                    log(`❌ ${version.toUpperCase()} test failed: ${error.message}`, 'connection-log');
+                }
+            }
+        }
+        
+        async function testAudioCapture() {
+            try {
+                log('Requesting microphone access...', 'audio-log');
+                
+                mediaStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        sampleRate: 16000,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    } 
+                });
+                
+                log('✅ Microphone access granted', 'audio-log');
+                
+                // Create audio context for visualization
+                audioContext = new AudioContext();
+                const source = audioContext.createMediaStreamSource(mediaStream);
+                const analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                
+                source.connect(analyser);
+                
+                // Visualize audio
+                const bufferLength = analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+                
+                function visualize() {
+                    if (!isRecording) return;
+                    
+                    analyser.getByteFrequencyData(dataArray);
+                    const average = dataArray.reduce((a, b) => a + b) / bufferLength;
+                    
+                    const visualizer = document.getElementById('audio-visualizer');
+                    visualizer.style.background = `linear-gradient(90deg, #4CAF50 ${average}%, #2a2a2a ${average}%)`;
+                    
+                    requestAnimationFrame(visualize);
+                }
+                
+                isRecording = true;
+                visualize();
+                log('🎵 Audio visualization started', 'audio-log');
+                
+            } catch (error) {
+                log(`❌ Audio capture failed: ${error.message}`, 'audio-log');
+            }
+        }
+        
+        async function testAudioPlayback() {
+            try {
+                log('Testing audio output...', 'audio-log');
+                
+                if (!audioContext) {
+                    audioContext = new AudioContext();
+                }
+                
+                // Create a simple beep sound
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(440, audioContext.currentTime); // A4 note
+                gainNode.gain.setValueAtTime(0.1, audioContext.currentTime); // Low volume
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.5); // 500ms beep
+                
+                log('✅ Audio output test completed (should hear a beep)', 'audio-log');
+                
+            } catch (error) {
+                log(`❌ Audio playback failed: ${error.message}`, 'audio-log');
+            }
+        }
+        
+        async function simulateVoiceAgent() {
+            try {
+                log('Starting voice agent simulation...', 'voice-log');
+                document.getElementById('voice-status').textContent = 'Connecting...';
+                
+                // Connect to V1 backend
+                voiceAgentSocket = new WebSocket(`${BACKEND_URL.replace('https://', 'wss://')}/ws`);
+                
+                voiceAgentSocket.onopen = () => {
+                    log('✅ Voice agent connected', 'voice-log');
+                    document.getElementById('voice-status').textContent = 'Connected - Ready for voice input';
+                    
+                    // Send a test message
+                    voiceAgentSocket.send(JSON.stringify({ 
+                        type: 'test', 
+                        message: 'Voice agent integration test' 
+                    }));
+                };
+                
+                voiceAgentSocket.onmessage = (event) => {
+                    log(`📥 Received: ${event.data}`, 'voice-log');
+                };
+                
+                voiceAgentSocket.onclose = () => {
+                    log('🔌 Voice agent disconnected', 'voice-log');
+                    document.getElementById('voice-status').textContent = 'Disconnected';
+                };
+                
+                voiceAgentSocket.onerror = (error) => {
+                    log(`❌ Voice agent error: ${error}`, 'voice-log');
+                    document.getElementById('voice-status').textContent = 'Error';
+                };
+                
+            } catch (error) {
+                log(`❌ Voice agent simulation failed: ${error.message}`, 'voice-log');
+            }
+        }
+        
+        function stopVoiceAgent() {
+            if (voiceAgentSocket) {
+                voiceAgentSocket.close();
+                voiceAgentSocket = null;
+            }
+            if (isRecording) {
+                isRecording = false;
+                if (mediaStream) {
+                    mediaStream.getTracks().forEach(track => track.stop());
+                    mediaStream = null;
+                }
+            }
+            log('🛑 Voice agent stopped', 'voice-log');
+            document.getElementById('voice-status').textContent = 'Stopped';
+        }
+        
+        async function testPerformance() {
+            try {
+                log('Running performance test...', 'performance-log');
+                
+                const startTime = performance.now();
+                
+                // Test WebSocket connection speed
+                const wsStart = performance.now();
+                const ws = new WebSocket(`${BACKEND_URL.replace('https://', 'wss://')}/ws`);
+                
+                await new Promise((resolve) => {
+                    ws.onopen = resolve;
+                });
+                
+                const wsTime = performance.now() - wsStart;
+                ws.close();
+                
+                // Test HTTP health check speed
+                const httpStart = performance.now();
+                const response = await fetch(`${BACKEND_URL}/health`);
+                const healthData = await response.json();
+                const httpTime = performance.now() - httpStart;
+                
+                const totalTime = performance.now() - startTime;
+                
+                const metrics = {
+                    websocketConnection: Math.round(wsTime),
+                    httpRequest: Math.round(httpTime),
+                    totalTime: Math.round(totalTime),
+                    backendStatus: healthData.status
+                };
+                
+                document.getElementById('performance-metrics').innerHTML = `
+                    <div><strong>WebSocket Connection:</strong> ${metrics.websocketConnection}ms</div>
+                    <div><strong>HTTP Request:</strong> ${metrics.httpRequest}ms</div>
+                    <div><strong>Total Time:</strong> ${metrics.totalTime}ms</div>
+                    <div><strong>Backend Status:</strong> ${metrics.backendStatus}</div>
+                `;
+                
+                log(`✅ Performance test completed:`, 'performance-log');
+                log(`   WebSocket: ${metrics.websocketConnection}ms`, 'performance-log');
+                log(`   HTTP: ${metrics.httpRequest}ms`, 'performance-log');
+                log(`   Total: ${metrics.totalTime}ms`, 'performance-log');
+                
+            } catch (error) {
+                log(`❌ Performance test failed: ${error.message}`, 'performance-log');
+            }
+        }
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            stopVoiceAgent();
+        });
+    </script>
+</body>
+</html> 

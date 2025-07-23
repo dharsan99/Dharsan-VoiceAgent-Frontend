@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Audio Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background-color: #2a2a2a;
+        }
+        .success { border-color: #4CAF50; }
+        .error { border-color: #f44336; }
+        .processing { border-color: #ff9800; }
+        
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 8px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        button:hover { background-color: #45a049; }
+        button:disabled { background-color: #666; cursor: not-allowed; }
+        
+        .log {
+            background-color: #1a1a1a;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 15px;
+            border: 1px solid #444;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .status-connected { background-color: #4CAF50; }
+        .status-disconnected { background-color: #f44336; }
+        .status-connecting { background-color: #ff9800; }
+        
+        .audio-visualizer {
+            width: 100%;
+            height: 100px;
+            background-color: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        
+        .test-message {
+            background-color: #1a1a1a;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+            border: 1px solid #444;
+        }
+        
+        .test-message.user {
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .test-message.ai {
+            border-left: 4px solid #2196F3;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎤 Voice Audio Test</h1>
+    <p>Testing real audio processing with the full AI backend</p>
+    
+    <div class="test-section">
+        <h3>🔗 Connection Test</h3>
+        <div>
+            <span class="status-indicator status-disconnected" id="connection-status"></span>
+            <span id="connection-text">Disconnected</span>
+        </div>
+        <button onclick="connectToBackend()">Connect to Backend</button>
+        <button onclick="disconnectFromBackend()">Disconnect</button>
+        <div id="connection-log" class="log"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>🎤 Audio Processing Test</h3>
+        <button onclick="startMicrophone()">Start Microphone</button>
+        <button onclick="stopMicrophone()">Stop Microphone</button>
+        <button onclick="sendTestAudio()">Send Test Audio</button>
+        <button onclick="sendSilence()">Send Silence</button>
+        <div class="audio-visualizer" id="audio-visualizer"></div>
+        <div id="audio-log" class="log"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>📝 Conversation History</h3>
+        <div id="conversation-history"></div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'https://dharsan99--voice-ai-backend-run-app.modal.run';
+        let websocket = null;
+        let isConnected = false;
+        let mediaRecorder = null;
+        let audioContext = null;
+        let microphone = null;
+        let conversationHistory = [];
+        
+        function log(message, logId) {
+            const logElement = document.getElementById(logId);
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        function updateStatus(status, text) {
+            const statusElement = document.getElementById('connection-status');
+            const textElement = document.getElementById('connection-text');
+            statusElement.className = `status-indicator status-${status}`;
+            textElement.textContent = text;
+        }
+        
+        function addToConversation(userMessage, aiResponse) {
+            conversationHistory.push({ user: userMessage, ai: aiResponse, timestamp: new Date() });
+            updateConversationDisplay();
+        }
+        
+        function updateConversationDisplay() {
+            const historyDiv = document.getElementById('conversation-history');
+            historyDiv.innerHTML = '';
+            
+            conversationHistory.forEach((entry, index) => {
+                const userDiv = document.createElement('div');
+                userDiv.className = 'test-message user';
+                userDiv.innerHTML = `<strong>User:</strong> ${entry.user}`;
+                
+                const aiDiv = document.createElement('div');
+                aiDiv.className = 'test-message ai';
+                aiDiv.innerHTML = `<strong>AI:</strong> ${entry.ai}`;
+                
+                historyDiv.appendChild(userDiv);
+                historyDiv.appendChild(aiDiv);
+            });
+        }
+        
+        async function connectToBackend() {
+            try {
+                log('Connecting to backend...', 'connection-log');
+                updateStatus('connecting', 'Connecting...');
+                
+                websocket = new WebSocket(`${BACKEND_URL.replace('https://', 'wss://')}/ws`);
+                
+                websocket.onopen = () => {
+                    log('✅ Connected to backend successfully!', 'connection-log');
+                    updateStatus('connected', 'Connected');
+                    isConnected = true;
+                };
+                
+                websocket.onmessage = (event) => {
+                    if (event.data instanceof Blob) {
+                        // Handle audio data
+                        log(`🎵 Received audio chunk: ${event.data.size} bytes`, 'audio-log');
+                        playAudioChunk(event.data);
+                    } else {
+                        // Handle text messages
+                        log(`📥 Received: ${event.data}`, 'audio-log');
+                        
+                        try {
+                            const message = JSON.parse(event.data);
+                            handleMessage(message);
+                        } catch (error) {
+                            log(`📝 Plain text: ${event.data}`, 'audio-log');
+                        }
+                    }
+                };
+                
+                websocket.onclose = (event) => {
+                    log(`🔌 Connection closed: ${event.code}`, 'connection-log');
+                    updateStatus('disconnected', 'Disconnected');
+                    isConnected = false;
+                };
+                
+                websocket.onerror = (error) => {
+                    log(`❌ Connection error: ${error}`, 'connection-log');
+                    updateStatus('disconnected', 'Error');
+                };
+                
+            } catch (error) {
+                log(`❌ Failed to connect: ${error.message}`, 'connection-log');
+                updateStatus('disconnected', 'Failed');
+            }
+        }
+        
+        function disconnectFromBackend() {
+            if (websocket) {
+                websocket.close();
+                websocket = null;
+            }
+            if (mediaRecorder) {
+                mediaRecorder.stop();
+                mediaRecorder = null;
+            }
+        }
+        
+        function handleMessage(message) {
+            switch (message.type) {
+                case 'final_transcript':
+                    log(`🎤 Final Transcript: ${message.text}`, 'audio-log');
+                    addToConversation(message.text, 'Processing...');
+                    break;
+                    
+                case 'interim_transcript':
+                    log(`🎤 Interim: ${message.text}`, 'audio-log');
+                    break;
+                    
+                case 'processing_complete':
+                    log(`🤖 AI Response: ${message.response}`, 'audio-log');
+                    // Update the last conversation entry
+                    if (conversationHistory.length > 0) {
+                        conversationHistory[conversationHistory.length - 1].ai = message.response;
+                        updateConversationDisplay();
+                    }
+                    break;
+                    
+                case 'word_timing_start':
+                    log(`📝 TTS Started: ${message.text}`, 'audio-log');
+                    break;
+                    
+                case 'word_highlight':
+                    log(`✨ Word: "${message.word}" (${message.timestamp.toFixed(2)}s)`, 'audio-log');
+                    break;
+                    
+                case 'word_timing_complete':
+                    log(`✅ TTS Complete: ${message.total_words} words`, 'audio-log');
+                    break;
+                    
+                case 'ai_response':
+                    log(`🤖 AI Response: ${message.response}`, 'audio-log');
+                    // Update the last conversation entry
+                    if (conversationHistory.length > 0) {
+                        conversationHistory[conversationHistory.length - 1].ai = message.response;
+                        updateConversationDisplay();
+                    }
+                    break;
+                    
+                case 'error':
+                    log(`❌ Error: ${message.message}`, 'audio-log');
+                    break;
+                    
+                default:
+                    log(`📨 Unknown message type: ${message.type}`, 'audio-log');
+            }
+        }
+        
+        async function startMicrophone() {
+            if (!isConnected) {
+                log('❌ Not connected to backend', 'audio-log');
+                return;
+            }
+            
+            try {
+                log('🎤 Requesting microphone access...', 'audio-log');
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        sampleRate: 16000,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true
+                    } 
+                });
+                
+                log('✅ Microphone access granted', 'audio-log');
+                
+                // Create audio context for processing
+                audioContext = new AudioContext({ sampleRate: 16000 });
+                microphone = audioContext.createMediaStreamSource(stream);
+                
+                // Create script processor to capture audio
+                const processor = audioContext.createScriptProcessor(1024, 1, 1);
+                
+                processor.onaudioprocess = (event) => {
+                    const inputBuffer = event.inputBuffer;
+                    const inputData = inputBuffer.getChannelData(0);
+                    
+                    // Convert to 16-bit PCM
+                    const audioData = new Int16Array(inputData.length);
+                    for (let i = 0; i < inputData.length; i++) {
+                        audioData[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32767));
+                    }
+                    
+                    // Send audio data to backend
+                    if (websocket && websocket.readyState === WebSocket.OPEN) {
+                        websocket.send(audioData.buffer);
+                    }
+                };
+                
+                microphone.connect(processor);
+                processor.connect(audioContext.destination);
+                
+                log('🎤 Microphone started - speaking will be sent to backend', 'audio-log');
+                
+            } catch (error) {
+                log(`❌ Microphone error: ${error.message}`, 'audio-log');
+            }
+        }
+        
+        function stopMicrophone() {
+            if (microphone) {
+                microphone.disconnect();
+                microphone = null;
+            }
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            log('🎤 Microphone stopped', 'audio-log');
+        }
+        
+        function sendTestAudio() {
+            if (!isConnected) {
+                log('❌ Not connected to backend', 'audio-log');
+                return;
+            }
+            
+            log('🧪 Sending test audio signal...', 'audio-log');
+            
+            // Create a simple test audio signal (sine wave)
+            const sampleRate = 16000;
+            const duration = 1; // 1 second
+            const frequency = 440; // A4 note
+            const samples = sampleRate * duration;
+            
+            const audioData = new Int16Array(samples);
+            for (let i = 0; i < samples; i++) {
+                const sample = Math.sin(2 * Math.PI * frequency * i / sampleRate);
+                audioData[i] = Math.max(-32768, Math.min(32767, sample * 16384));
+            }
+            
+            websocket.send(audioData.buffer);
+            log('✅ Test audio sent', 'audio-log');
+        }
+        
+        function sendSilence() {
+            if (!isConnected) {
+                log('❌ Not connected to backend', 'audio-log');
+                return;
+            }
+            
+            log('🔇 Sending silence...', 'audio-log');
+            
+            // Create silence (zeros)
+            const sampleRate = 16000;
+            const duration = 0.5; // 0.5 seconds
+            const samples = sampleRate * duration;
+            
+            const audioData = new Int16Array(samples);
+            // All zeros = silence
+            
+            websocket.send(audioData.buffer);
+            log('✅ Silence sent', 'audio-log');
+        }
+        
+        let audioChunks = [];
+        let audioQueue = [];
+        let isPlayingAudio = false;
+        
+        function playAudioChunk(audioBlob) {
+            // Add to queue for sequential playback
+            audioQueue.push(audioBlob);
+            
+            if (!isPlayingAudio) {
+                playNextAudioChunk();
+            }
+        }
+        
+        function playNextAudioChunk() {
+            if (audioQueue.length === 0) {
+                isPlayingAudio = false;
+                return;
+            }
+            
+            isPlayingAudio = true;
+            const audioBlob = audioQueue.shift();
+            
+            // Convert blob to array buffer for proper audio handling
+            audioBlob.arrayBuffer().then(buffer => {
+                // Create audio context for playback
+                const playbackContext = new AudioContext({ sampleRate: 24000 });
+                
+                playbackContext.decodeAudioData(buffer).then(audioBuffer => {
+                    // Create buffer source
+                    const source = playbackContext.createBufferSource();
+                    source.buffer = audioBuffer;
+                    source.connect(playbackContext.destination);
+                    
+                    // Play the audio
+                    source.start(0);
+                    
+                    // Play next chunk when this one finishes
+                    source.onended = () => {
+                        playNextAudioChunk();
+                    };
+                    
+                }).catch(error => {
+                    log(`❌ Audio decode error: ${error.message}`, 'audio-log');
+                    playNextAudioChunk(); // Continue with next chunk
+                });
+                
+            }).catch(error => {
+                log(`❌ Audio blob error: ${error.message}`, 'audio-log');
+                playNextAudioChunk(); // Continue with next chunk
+            });
+        }
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            disconnectFromBackend();
+        });
+        
+        // Initialize
+        updateStatus('disconnected', 'Disconnected');
+    </script>
+</body>
+</html> 

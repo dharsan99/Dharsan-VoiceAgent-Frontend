@@ -26,7 +26,7 @@ interface SessionInfo {
   duration: number;
 }
 
-export const useVoiceAgentV2 = (websocketUrl: string = `${import.meta.env.VITE_WEBSOCKET_URL || 'wss://dharsan99--voice-ai-backend-run-app.modal.run/ws'}/v2`) => {
+export const useVoiceAgentV2 = (websocketUrl: string = `${import.meta.env.VITE_WEBSOCKET_URL_V2 || 'wss://dharsan99--voice-ai-backend-with-storage-voice-agent-app.modal.run/ws'}`) => {
   const [state, setState] = useState<VoiceAgentState>({
     connectionStatus: 'disconnected',
     processingStatus: 'idle',
@@ -38,7 +38,7 @@ export const useVoiceAgentV2 = (websocketUrl: string = `${import.meta.env.VITE_W
     version: '2.0.0'
   });
 
-  const [networkStats, setNetworkStats] = useState<NetworkStats>({
+  const [networkStats] = useState<NetworkStats>({
     latency: 0,
     jitter: 0,
     packetLoss: 0,
@@ -65,7 +65,26 @@ export const useVoiceAgentV2 = (websocketUrl: string = `${import.meta.env.VITE_W
     try {
       setState(prev => ({ ...prev, connectionStatus: 'connecting', error: null }));
 
-      const ws = new WebSocket(websocketUrl);
+      // Create session via HTTP first
+      const baseUrl = websocketUrl.replace('wss://', 'https://').replace('/ws', '');
+      const sessionResponse = await fetch(`${baseUrl}/sessions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!sessionResponse.ok) {
+        throw new Error('Failed to create session');
+      }
+      
+      const sessionData = await sessionResponse.json();
+      const sessionId = sessionData.session_id;
+      setState(prev => ({ ...prev, sessionId }));
+
+      // Connect to session-specific WebSocket
+      const sessionWsUrl = `${websocketUrl}`;
+      const ws = new WebSocket(sessionWsUrl);
       websocketRef.current = ws;
 
       ws.onopen = () => {
@@ -282,8 +301,19 @@ export const useVoiceAgentV2 = (websocketUrl: string = `${import.meta.env.VITE_W
         break;
 
       case 'echo':
-        console.log('V2 Echo received:', data.message);
+        console.log('V2 Echo received:', data.data);
         // Handle echo messages (for testing)
+        break;
+        
+      case 'ping':
+        console.log('V2 Received ping, sending pong');
+        if (websocketRef.current?.readyState === WebSocket.OPEN) {
+          websocketRef.current.send(JSON.stringify({ type: 'pong' }));
+        }
+        break;
+        
+      case 'pong':
+        console.log('V2 Received pong');
         break;
 
       default:
@@ -321,11 +351,11 @@ export const useVoiceAgentV2 = (websocketUrl: string = `${import.meta.env.VITE_W
   // Session management
   const fetchSessionInfo = useCallback(async () => {
     try {
-      const baseUrl = (import.meta.env.VITE_WEBSOCKET_URL || 'wss://dharsan99--voice-ai-backend-run-app.modal.run/ws').replace('ws://', 'http://').replace('wss://', 'https://').replace('/ws', '');
-      const response = await fetch(`${baseUrl}/v2/sessions`);
+      const baseUrl = websocketUrl.replace('wss://', 'https://').replace('/ws', '');
+      const response = await fetch(`${baseUrl}/sessions`);
       if (response.ok) {
         const data = await response.json();
-        const currentSession = data.sessions.find((s: any) => s.sessionId === state.sessionId);
+        const currentSession = data.sessions.find((s: any) => s.id === state.sessionId);
         if (currentSession) {
           setSessionInfo(currentSession);
         }
@@ -333,7 +363,7 @@ export const useVoiceAgentV2 = (websocketUrl: string = `${import.meta.env.VITE_W
     } catch (error) {
       console.error('Failed to fetch session info:', error);
     }
-  }, [state.sessionId]);
+  }, [state.sessionId, websocketUrl]);
 
   // Cleanup on unmount
   useEffect(() => {

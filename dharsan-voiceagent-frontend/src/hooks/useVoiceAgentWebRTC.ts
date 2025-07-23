@@ -34,7 +34,7 @@ interface SessionInfo {
   duration: number;
 }
 
-export const useVoiceAgentWebRTC = (signalingUrl: string = 'wss://dharsan99--voice-ai-backend-v2-run-app.modal.run/ws/v2') => {
+export const useVoiceAgentWebRTC = (signalingUrl: string = `${import.meta.env.VITE_WEBSOCKET_URL_V3 || 'wss://dharsan99--voice-ai-backend-with-storage-voice-agent-app.modal.run/ws'}`) => {
   // State management
   const [state, setState] = useState<VoiceAgentState>({
     connectionStatus: 'disconnected',
@@ -47,8 +47,8 @@ export const useVoiceAgentWebRTC = (signalingUrl: string = 'wss://dharsan99--voi
     version: '2.0.0'
   });
 
-  const [isRecording, setIsRecording] = useState(false);
-  const [networkStats, setNetworkStats] = useState<NetworkStats>({
+  const [isRecording] = useState(false);
+  const [networkStats] = useState<NetworkStats>({
     latency: 0,
     jitter: 0,
     packetLoss: 0,
@@ -123,8 +123,21 @@ export const useVoiceAgentWebRTC = (signalingUrl: string = 'wss://dharsan99--voi
     try {
       setState(prev => ({ ...prev, connectionStatus: 'connecting', error: null }));
 
-      // Generate session ID
-      const sessionId = crypto.randomUUID();
+      // Create session via HTTP first
+      const baseUrl = signalingUrl.replace('wss://', 'https://').replace('/ws/v2', '');
+      const sessionResponse = await fetch(`${baseUrl}/v2/sessions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!sessionResponse.ok) {
+        throw new Error('Failed to create session');
+      }
+      
+      const sessionData = await sessionResponse.json();
+      const sessionId = sessionData.session_id;
       setState(prev => ({ ...prev, sessionId }));
 
       // Setup WebRTC
@@ -147,7 +160,7 @@ export const useVoiceAgentWebRTC = (signalingUrl: string = 'wss://dharsan99--voi
         pc.addTrack(track, stream);
       });
 
-      // Connect to signaling server
+      // Connect to signaling server with session ID
       const socket = new WebSocket(`${signalingUrl}/${sessionId}`);
       signalingSocketRef.current = socket;
 
@@ -189,6 +202,21 @@ export const useVoiceAgentWebRTC = (signalingUrl: string = 'wss://dharsan99--voi
                 error: message.message,
                 connectionStatus: 'failed'
               }));
+              break;
+              
+            case 'echo':
+              console.log('Received echo message:', message.data);
+              break;
+              
+            case 'ping':
+              console.log('Received ping message, sending pong');
+              if (signalingSocketRef.current?.readyState === WebSocket.OPEN) {
+                signalingSocketRef.current.send(JSON.stringify({ type: 'pong' }));
+              }
+              break;
+              
+            case 'connection_established':
+              console.log('Test connection established');
               break;
               
             default:
@@ -270,20 +298,20 @@ export const useVoiceAgentWebRTC = (signalingUrl: string = 'wss://dharsan99--voi
   }, []);
 
   // Heartbeat and reconnection
-  const startHeartbeat = useCallback(() => {
-    heartbeatIntervalRef.current = setInterval(() => {
-      if (signalingSocketRef.current?.readyState === WebSocket.OPEN) {
-        signalingSocketRef.current.send(JSON.stringify({ type: 'ping' }));
-      }
-    }, 30000); // 30 seconds
-  }, []);
+  // const startHeartbeat = useCallback(() => {
+  //   heartbeatIntervalRef.current = setInterval(() => {
+  //     if (signalingSocketRef.current?.readyState === WebSocket.OPEN) {
+  //       signalingSocketRef.current.send(JSON.stringify({ type: 'ping' }));
+  //     }
+  //   }, 30000); // 30 seconds
+  // }, []);
 
-  const stopHeartbeat = useCallback(() => {
-    if (heartbeatIntervalRef.current) {
-      clearInterval(heartbeatIntervalRef.current);
-      heartbeatIntervalRef.current = null;
-    }
-  }, []);
+  // const stopHeartbeat = useCallback(() => {
+  //   if (heartbeatIntervalRef.current) {
+  //     clearInterval(heartbeatIntervalRef.current);
+  //     heartbeatIntervalRef.current = null;
+  //   }
+  // }, []);
 
   const scheduleReconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -299,7 +327,8 @@ export const useVoiceAgentWebRTC = (signalingUrl: string = 'wss://dharsan99--voi
   // Session management
   const fetchSessionInfo = useCallback(async () => {
     try {
-      const baseUrl = (import.meta.env.VITE_WEBSOCKET_URL || 'wss://dharsan99--voice-ai-backend-v2-run-app.modal.run/ws').replace('ws://', 'http://').replace('wss://', 'https://').replace('/ws', '');
+      // Use the correct v2 backend URL
+      const baseUrl = 'https://dharsan99--voice-ai-backend-v2-run-app.modal.run';
       const response = await fetch(`${baseUrl}/v2/sessions`);
       if (response.ok) {
         const data = await response.json();
