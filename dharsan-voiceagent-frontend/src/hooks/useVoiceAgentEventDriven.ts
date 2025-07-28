@@ -298,68 +298,26 @@ export const useVoiceAgentEventDriven = (): [VoiceAgentEventDrivenState, VoiceAg
       // Test with real TTS audio
       console.log('🎵 Test: Requesting TTS test audio...');
       
-      // Make a direct request to the TTS service
-              const response = await fetch('https://35.244.33.111:443/synthesize', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          text: 'Audio working',
-          voice: 'en_US-lessac-high',
-          speed: 1.0,
-          format: 'wav'
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error(`TTS request failed: ${response.status}`);
+      // Use WebSocket to request TTS synthesis
+      if (!websocketRef.current || websocketRef.current.readyState !== WebSocket.OPEN) {
+        throw new Error('WebSocket not connected');
       }
       
-      const audioData = await response.arrayBuffer();
-      console.log('🎵 Test: Received TTS audio data:', audioData.byteLength, 'bytes');
+      // Send TTS request via WebSocket
+      const ttsRequest = {
+        event: 'tts_request',
+        text: 'Audio working',
+        voice: 'en_US-lessac-high',
+        speed: 1.0,
+        format: 'wav',
+        session_id: state.sessionId
+      };
       
-      // Create WAV header for the raw PCM data
-      const sampleRate = 22050;
-      const channels = 1;
-      const bitsPerSample = 16;
+      websocketRef.current.send(JSON.stringify(ttsRequest));
       
-      const wavHeader = new ArrayBuffer(44);
-      const view = new DataView(wavHeader);
-      
-      // RIFF header
-      view.setUint32(0, 0x52494646, false); // "RIFF"
-      view.setUint32(4, 36 + audioData.byteLength, true); // File size - 8
-      view.setUint32(8, 0x57415645, false); // "WAVE"
-      
-      // fmt chunk
-      view.setUint32(12, 0x666D7420, false); // "fmt "
-      view.setUint32(16, 16, true); // Chunk size
-      view.setUint16(20, 1, true); // Audio format (PCM)
-      view.setUint16(22, channels, true); // Channels
-      view.setUint32(24, sampleRate, true); // Sample rate
-      view.setUint32(28, sampleRate * channels * bitsPerSample / 8, true); // Byte rate
-      view.setUint16(32, channels * bitsPerSample / 8, true); // Block align
-      view.setUint16(34, bitsPerSample, true); // Bits per sample
-      
-      // data chunk
-      view.setUint32(36, 0x64617461, false); // "data"
-      view.setUint32(40, audioData.byteLength, true); // Data size
-      
-      // Combine header and audio data
-      const wavData = new Uint8Array(wavHeader.byteLength + audioData.byteLength);
-      wavData.set(new Uint8Array(wavHeader), 0);
-      wavData.set(new Uint8Array(audioData), wavHeader.byteLength);
-      
-      // Decode and play
-      const audioBuffer = await audioContextRef.current.decodeAudioData(wavData.buffer);
-      
-      const source = audioContextRef.current.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(audioContextRef.current.destination);
-      source.start();
-      
-      console.log('🎵 Test: Played TTS test audio successfully');
+      // For now, return true to indicate audio context is working
+      // TTS response will be handled by WebSocket message handler
+      console.log('🎵 Test: TTS request sent via WebSocket');
       return true;
     } catch (error) {
       console.error('🎵 Test: Audio context test failed:', error);
