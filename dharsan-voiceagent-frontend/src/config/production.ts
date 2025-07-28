@@ -1,10 +1,10 @@
 // Production Configuration for GKE Phase 5 Deployment
 export const PRODUCTION_CONFIG = {
   // GKE Phase 5 Production URLs
-  WHIP_URL: 'http://35.244.8.62:8001/whip', // Media Server LoadBalancer IP
-  ORCHESTRATOR_WS_URL: 'ws://34.47.230.178:8001/ws', // Orchestrator WebSocket
-  ORCHESTRATOR_HTTP_URL: 'http://34.47.230.178:8001', // Orchestrator HTTP API
-  ORCHESTRATOR_GRPC_URL: 'ws://34.47.230.178:8001/grpc', // Orchestrator gRPC WebSocket
+  WHIP_URL: 'https://35.244.8.62:8001/whip', // Media Server LoadBalancer IP
+  ORCHESTRATOR_WS_URL: 'wss://34.47.230.178:8001/ws', // Orchestrator WebSocket
+  ORCHESTRATOR_HTTP_URL: 'https://34.47.230.178:8001', // Orchestrator HTTP API
+  ORCHESTRATOR_GRPC_URL: 'wss://34.47.230.178:8001/grpc', // Orchestrator gRPC WebSocket
   
   // Service URLs (internal cluster IPs - for reference)
   STT_SERVICE_URL: 'http://34.118.229.142:8000', // STT Service
@@ -29,23 +29,23 @@ export const PRODUCTION_CONFIG = {
     // TURN servers with authentication
     {
       urls: 'turn:global.relay.metered.ca:80',
-      username: '10f1dfa42670d72b3a31482a',
-      credential: 'FvFd4gNrt9+OZk4r',
+      username: process.env.VITE_TURN_USERNAME || '10f1dfa42670d72b3a31482a',
+      credential: process.env.VITE_TURN_CREDENTIAL || 'FvFd4gNrt9+OZk4r',
     },
     {
       urls: 'turn:global.relay.metered.ca:80?transport=tcp',
-      username: '10f1dfa42670d72b3a31482a',
-      credential: 'FvFd4gNrt9+OZk4r',
+      username: process.env.VITE_TURN_USERNAME || '10f1dfa42670d72b3a31482a',
+      credential: process.env.VITE_TURN_CREDENTIAL || 'FvFd4gNrt9+OZk4r',
     },
     {
       urls: 'turn:global.relay.metered.ca:443',
-      username: '10f1dfa42670d72b3a31482a',
-      credential: 'FvFd4gNrt9+OZk4r',
+      username: process.env.VITE_TURN_USERNAME || '10f1dfa42670d72b3a31482a',
+      credential: process.env.VITE_TURN_CREDENTIAL || 'FvFd4gNrt9+OZk4r',
     },
     {
       urls: 'turns:global.relay.metered.ca:443?transport=tcp',
-      username: '10f1dfa42670d72b3a31482a',
-      credential: 'FvFd4gNrt9+OZk4r',
+      username: process.env.VITE_TURN_USERNAME || '10f1dfa42670d72b3a31482a',
+      credential: process.env.VITE_TURN_CREDENTIAL || 'FvFd4gNrt9+OZk4r',
     },
   ],
   

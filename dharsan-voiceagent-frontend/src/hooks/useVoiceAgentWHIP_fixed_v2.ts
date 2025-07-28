@@ -998,7 +998,7 @@ export const useVoiceAgentWHIP = (): [VoiceAgentState, VoiceAgentActions] => {
       updatePipelineStep('audio-in', 'processing', 'Starting audio processing...', undefined, 0);
       
       // Call media server to enable audio processing
-      const response = await fetch('http://35.244.8.62:8001/listening/start', {
+      const response = await fetch('https://35.244.8.62:8001/listening/start', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1036,7 +1036,7 @@ export const useVoiceAgentWHIP = (): [VoiceAgentState, VoiceAgentActions] => {
       addPipelineLog('audio-in', 'Stopping listening...');
       
       // Call media server to disable audio processing
-      const response = await fetch('http://35.244.8.62:8001/listening/stop', {
+      const response = await fetch('https://35.244.8.62:8001/listening/stop', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
