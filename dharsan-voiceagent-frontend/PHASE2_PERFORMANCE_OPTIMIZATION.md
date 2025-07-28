@@ -60,9 +60,9 @@ a=extmap:8 http://www.webrtc.org/experiments/rtp-hdrext/color-space
 a=extmap:9 urn:ietf:params:rtp-hdrext:sdes:mid
 a=extmap:10 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id
 a=extmap:11 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id
-a=ice-pwd:testpassword123
-a=ice-ufrag:testuser
-a=fingerprint:sha-256 testfingerprint123
+a=ice-pwd:your_ice_password_here
+a=ice-ufrag:your_ice_username_here
+a=fingerprint:sha-256 your_fingerprint_here
 a=setup:actpass
 a=connection:new`;
 ```
