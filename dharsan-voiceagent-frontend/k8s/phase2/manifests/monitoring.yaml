@@ -1,0 +1,161 @@
+# Prometheus ServiceMonitor for Phase 2 services
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: voice-agent-phase2-monitor
+  namespace: voice-agent-phase2
+  labels:
+    app: voice-agent
+    phase: "2"
+spec:
+  selector:
+    matchLabels:
+      app: voice-agent
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+  - port: http
+    path: /health
+    interval: 30s
+
+---
+# Prometheus ServiceMonitor for Redpanda
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: redpanda-monitor
+  namespace: voice-agent-phase2
+  labels:
+    app: redpanda
+    component: message-bus
+spec:
+  selector:
+    matchLabels:
+      app: redpanda
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 30s
+
+---
+# Prometheus ServiceMonitor for Media Server
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: media-server-monitor
+  namespace: voice-agent-phase2
+  labels:
+    app: media-server
+    component: webrtc
+spec:
+  selector:
+    matchLabels:
+      app: media-server
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+
+---
+# Prometheus ServiceMonitor for Orchestrator
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: orchestrator-monitor
+  namespace: voice-agent-phase2
+  labels:
+    app: orchestrator
+    component: ai-pipeline
+spec:
+  selector:
+    matchLabels:
+      app: orchestrator
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+
+---
+# HorizontalPodAutoscaler for Media Server
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: media-server-hpa
+  namespace: voice-agent-phase2
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: media-server
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+# HorizontalPodAutoscaler for Orchestrator
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: orchestrator-hpa
+  namespace: voice-agent-phase2
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: orchestrator
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+# HorizontalPodAutoscaler for Frontend
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: frontend-hpa
+  namespace: voice-agent-phase2
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: frontend
+  minReplicas: 3
+  maxReplicas: 15
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80 

@@ -1,0 +1,142 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orchestrator
+  namespace: voice-agent-phase2
+  labels:
+    app: orchestrator
+    component: ai-pipeline
+    phase: "2"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: orchestrator
+  template:
+    metadata:
+      labels:
+        app: orchestrator
+        component: ai-pipeline
+        phase: "2"
+    spec:
+      initContainers:
+      - name: copy-binary
+        image: alpine:latest
+        command: ['sh', '-c', 'cp /orchestrator-binary/orchestrator /shared/ && chmod +x /shared/orchestrator']
+        volumeMounts:
+        - name: orchestrator-binary
+          mountPath: /orchestrator-binary
+        - name: shared-volume
+          mountPath: /shared
+      containers:
+      - name: orchestrator
+        image: alpine:latest
+        command: ['/shared/orchestrator']
+        ports:
+        - containerPort: 8001
+          name: websocket
+        env:
+        - name: KAFKA_BROKERS
+          value: "redpanda.voice-agent-phase2.svc.cluster.local:9092"
+        - name: KAFKA_TOPIC_AUDIO_IN
+          value: "audio-in"
+        - name: KAFKA_TOPIC_AUDIO_OUT
+          value: "audio-out"
+        - name: SERVER_PORT
+          value: "8001"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/app/secrets/google-credentials.json"
+        - name: GOOGLE_PROJECT_ID
+          valueFrom:
+            secretKeyRef:
+              name: google-ai-secrets
+              key: project-id
+        volumeMounts:
+        - name: orchestrator-config
+          mountPath: /app/config
+          readOnly: true
+        - name: google-credentials
+          mountPath: /app/secrets
+          readOnly: true
+        - name: shared-volume
+          mountPath: /shared
+          readOnly: true
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "300m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+      volumes:
+      - name: orchestrator-config
+        configMap:
+          name: orchestrator-config
+      - name: google-credentials
+        secret:
+          secretName: google-ai-secrets
+      - name: orchestrator-binary
+        configMap:
+          name: orchestrator-binary
+      - name: shared-volume
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orchestrator
+  namespace: voice-agent-phase2
+  labels:
+    app: orchestrator
+    component: ai-pipeline
+spec:
+  selector:
+    app: orchestrator
+  ports:
+  - name: websocket
+    port: 8001
+    targetPort: 8001
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: orchestrator-config
+  namespace: voice-agent-phase2
+data:
+  config.yaml: |
+    server:
+      port: 8001
+      host: "0.0.0.0"
+    kafka:
+      brokers:
+        - "redpanda.voice-agent-phase2.svc.cluster.local:9092"
+      topics:
+        audio_in: "audio-in"
+        audio_out: "audio-out"
+    ai:
+      google:
+        project_id: "${GOOGLE_PROJECT_ID}"
+        speech_to_text:
+          language_code: "en-US"
+          model: "latest_long"
+        text_to_speech:
+          voice_name: "en-US-Neural2-F" 

@@ -1,0 +1,117 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: voice-agent-phase2
+  labels:
+    app: frontend
+    component: ui
+    phase: "2"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+        component: ui
+        phase: "2"
+    spec:
+      containers:
+      - name: frontend
+        image: voice-agent/frontend:phase2
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+          name: http
+        env:
+        - name: VITE_API_BASE_URL
+          value: "https://api.voice-agent.com"
+        - name: VITE_MEDIA_SERVER_URL
+          value: "https://media.voice-agent.com"
+        - name: VITE_ORCHESTRATOR_URL
+          value: "wss://orchestrator.voice-agent.com/ws"
+        - name: VITE_APP_VERSION
+          value: "2.0.0"
+        - name: VITE_PHASE
+          value: "2"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: frontend-config
+          mountPath: /usr/share/nginx/html/config
+          readOnly: true
+      volumes:
+      - name: frontend-config
+        configMap:
+          name: frontend-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: voice-agent-phase2
+  labels:
+    app: frontend
+    component: ui
+spec:
+  selector:
+    app: frontend
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  namespace: voice-agent-phase2
+data:
+  config.js: |
+    window.APP_CONFIG = {
+      version: "2.0.0",
+      phase: "2",
+      api: {
+        baseUrl: "https://api.voice-agent.com",
+        mediaServerUrl: "https://media.voice-agent.com",
+        orchestratorUrl: "wss://orchestrator.voice-agent.com/ws"
+      },
+      features: {
+        aiConversation: true,
+        realTimeAudio: true,
+        voiceActivityDetection: true,
+        conversationHistory: true
+      },
+      ui: {
+        theme: "dark",
+        language: "en",
+        debugMode: false
+      }
+    }; 

@@ -1,0 +1,122 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: media-server
+  namespace: voice-agent-phase2
+  labels:
+    app: media-server
+    component: webrtc
+    phase: "2"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: media-server
+  template:
+    metadata:
+      labels:
+        app: media-server
+        component: webrtc
+        phase: "2"
+    spec:
+      containers:
+      - name: media-server
+        image: asia-south1-docker.pkg.dev/speechtotext-466820/voice-agent-repo/media-server:phase2-v1.0.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: KAFKA_BROKERS
+          value: "redpanda.voice-agent-phase2.svc.cluster.local:9092"
+        - name: KAFKA_TOPIC_AUDIO_IN
+          value: "audio-in"
+        - name: KAFKA_TOPIC_AUDIO_OUT
+          value: "audio-out"
+        - name: SERVER_PORT
+          value: "8080"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: PHASE
+          value: "2"
+        - name: AI_ENABLED
+          value: "true"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: media-server-config
+          mountPath: /app/config
+          readOnly: true
+      volumes:
+      - name: media-server-config
+        configMap:
+          name: media-server-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: media-server
+  namespace: voice-agent-phase2
+  labels:
+    app: media-server
+    component: webrtc
+spec:
+  selector:
+    app: media-server
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: media-server-config
+  namespace: voice-agent-phase2
+data:
+  config.yaml: |
+    server:
+      port: 8080
+      host: "0.0.0.0"
+    
+    kafka:
+      brokers:
+        - "redpanda.voice-agent-phase2.svc.cluster.local:9092"
+      topics:
+        audio_in: "audio-in"
+        audio_out: "audio-out"
+    
+    webrtc:
+      ice_servers:
+        - urls: ["stun:stun.l.google.com:19302"]
+    
+    logging:
+      level: "info"
+      format: "json"
+    
+    phase: "2"
+    ai_enabled: true 

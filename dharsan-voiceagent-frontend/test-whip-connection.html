@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WHIP Connection Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .container {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .log {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .status.connected { background: #28a745; }
+        .status.connecting { background: #ffc107; color: #000; }
+        .status.disconnected { background: #dc3545; }
+        .status.error { background: #dc3545; }
+    </style>
+</head>
+<body>
+    <h1>WHIP Connection Test</h1>
+    
+    <div class="container">
+        <h2>Test Controls</h2>
+        <button id="testConnect">Test WHIP Connection</button>
+        <button id="testMedia">Test Media Access</button>
+        <button id="clearLog">Clear Log</button>
+    </div>
+
+    <div class="container">
+        <h2>Connection Status</h2>
+        <div id="status" class="status disconnected">Disconnected</div>
+    </div>
+
+    <div class="container">
+        <h2>Log Output</h2>
+        <div id="log" class="log"></div>
+    </div>
+
+    <script>
+        const log = document.getElementById('log');
+        const status = document.getElementById('status');
+        let peerConnection = null;
+        let mediaStream = null;
+
+        function addLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            log.textContent += `[${timestamp}] ${message}\n`;
+            log.scrollTop = log.scrollHeight;
+            console.log(message);
+        }
+
+        function updateStatus(state, message) {
+            status.textContent = message;
+            status.className = `status ${state}`;
+        }
+
+        document.getElementById('clearLog').addEventListener('click', () => {
+            log.textContent = '';
+        });
+
+        document.getElementById('testMedia').addEventListener('click', async () => {
+            try {
+                addLog('🎤 Testing media access...');
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                        sampleRate: 48000
+                    }
+                });
+                mediaStream = stream;
+                addLog('✅ Media access successful!');
+                addLog(`📊 Tracks: ${stream.getTracks().map(t => `${t.kind} (${t.id})`).join(', ')}`);
+            } catch (error) {
+                addLog(`❌ Media access failed: ${error.message}`);
+            }
+        });
+
+        document.getElementById('testConnect').addEventListener('click', async () => {
+            try {
+                addLog('🔗 Testing WHIP connection...');
+                updateStatus('connecting', 'Connecting...');
+
+                // Get media if not already available
+                if (!mediaStream) {
+                    addLog('🎤 Getting media stream...');
+                    mediaStream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true,
+                            sampleRate: 48000
+                        }
+                    });
+                    addLog('✅ Media stream obtained');
+                }
+
+                // Create peer connection
+                addLog('📡 Creating peer connection...');
+                peerConnection = new RTCPeerConnection({
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' }
+                    ]
+                });
+
+                // Add tracks
+                addLog('➕ Adding audio tracks...');
+                mediaStream.getTracks().forEach(track => {
+                    addLog(`➕ Adding track: ${track.kind}`);
+                    peerConnection.addTrack(track, mediaStream);
+                });
+
+                // Set up event handlers
+                peerConnection.onconnectionstatechange = () => {
+                    addLog(`🔄 Connection state: ${peerConnection.connectionState}`);
+                    addLog(`🔄 ICE connection state: ${peerConnection.iceConnectionState}`);
+                    addLog(`🔄 Signaling state: ${peerConnection.signalingState}`);
+                    
+                    if (peerConnection.connectionState === 'connected') {
+                        updateStatus('connected', 'Connected');
+                    } else if (peerConnection.connectionState === 'failed') {
+                        updateStatus('error', 'Connection Failed');
+                    }
+                };
+
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        addLog(`🎯 ICE candidate: ${event.candidate.candidate}`);
+                    }
+                };
+
+                peerConnection.onicegatheringstatechange = () => {
+                    addLog(`🔍 ICE gathering state: ${peerConnection.iceGatheringState}`);
+                };
+
+                // Create offer
+                addLog('📝 Creating offer...');
+                const offer = await peerConnection.createOffer();
+                addLog(`📄 Offer created: ${offer.type}`);
+                await peerConnection.setLocalDescription(offer);
+                addLog('📋 Local description set');
+
+                // Wait for ICE gathering
+                addLog('⏳ Waiting for ICE gathering...');
+                await new Promise((resolve) => {
+                    if (peerConnection.iceGatheringState === 'complete') {
+                        resolve();
+                    } else {
+                        peerConnection.onicecandidate = (event) => {
+                            if (!event.candidate) {
+                                resolve();
+                            }
+                        };
+                    }
+                });
+                addLog('✅ ICE gathering complete');
+
+                // Send WHIP request
+                addLog('📡 Sending WHIP request to http://localhost:8080/whip');
+                const response = await fetch('http://localhost:8080/whip', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/sdp',
+                    },
+                    body: peerConnection.localDescription.sdp
+                });
+
+                addLog(`📡 WHIP response status: ${response.status}`);
+                addLog(`📡 WHIP response headers: ${Object.fromEntries(response.headers.entries())}`);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    addLog(`❌ WHIP request failed: ${response.status} - ${errorText}`);
+                    updateStatus('error', 'WHIP Request Failed');
+                    return;
+                }
+
+                // Get SDP answer
+                const answerSDP = await response.text();
+                addLog(`📄 SDP answer length: ${answerSDP.length}`);
+                addLog(`📄 SDP answer preview: ${answerSDP.substring(0, 200)}...`);
+
+                const answer = new RTCSessionDescription({
+                    type: 'answer',
+                    sdp: answerSDP
+                });
+
+                addLog('🔧 Setting remote description...');
+                await peerConnection.setRemoteDescription(answer);
+                addLog('✅ Remote description set');
+
+                addLog('🎉 WHIP connection established!');
+                addLog(`📊 Final connection state: ${peerConnection.connectionState}`);
+                addLog(`📊 Final ICE connection state: ${peerConnection.iceConnectionState}`);
+
+                // Check connection state after a delay
+                setTimeout(() => {
+                    addLog(`⏰ Final states after 3 seconds:`);
+                    addLog(`Connection: ${peerConnection.connectionState}`);
+                    addLog(`ICE Connection: ${peerConnection.iceConnectionState}`);
+                    addLog(`ICE Gathering: ${peerConnection.iceGatheringState}`);
+                    addLog(`Signaling: ${peerConnection.signalingState}`);
+                    
+                    if (peerConnection.connectionState === 'connected') {
+                        updateStatus('connected', 'Connected Successfully');
+                    } else {
+                        updateStatus('error', 'Connection Failed');
+                    }
+                }, 3000);
+
+            } catch (error) {
+                addLog(`❌ Connection test failed: ${error.message}`);
+                updateStatus('error', 'Test Failed');
+            }
+        });
+
+        // Initial log
+        addLog('🚀 WHIP Connection Test Page Loaded');
+        addLog('📡 Ready to test WHIP connection to http://localhost:8080/whip');
+    </script>
+</body>
+</html> 

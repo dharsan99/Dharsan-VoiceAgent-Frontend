@@ -1,0 +1,209 @@
+{
+  "services": {
+    "media_server": {
+      "status": "success",
+      "response_time_ms": 11.410951614379883,
+      "data": {
+        "ai_enabled": true,
+        "kafka": "connected",
+        "phase": "2",
+        "service": "voice-agent-media-server",
+        "status": "healthy",
+        "timestamp": "2025-07-24T06:17:05Z",
+        "version": "2.0.0"
+      },
+      "phase_2_enabled": true,
+      "ai_enabled": true,
+      "kafka_connected": true
+    },
+    "orchestrator": {
+      "status": "success",
+      "connection_time_ms": 28.548002243041992,
+      "response_time_ms": 28.90777587890625,
+      "response": "{\"type\":\"connection_established\",\"timestamp\":\"2025-07-24T11:47:05+05:30\"}\n"
+    }
+  },
+  "protocols": {
+    "whip": {
+      "status": "error",
+      "response_time_ms": 7.982015609741211,
+      "error": "HTTP 500"
+    },
+    "websocket": {
+      "status": "success",
+      "connection_time_ms": 1.3759136199951172,
+      "response_time_ms": 1.458883285522461,
+      "response": "{\"type\":\"connection_established\",\"timestamp\":\"2025-07-24T11:47:05+05:30\"}\n"
+    },
+    "kafka": {
+      "status": "success",
+      "kafka_status": "connected",
+      "details": {
+        "ai_enabled": true,
+        "kafka": "connected",
+        "phase": "2",
+        "service": "voice-agent-media-server",
+        "status": "healthy",
+        "timestamp": "2025-07-24T06:17:05Z",
+        "version": "2.0.0"
+      }
+    },
+    "ai_pipeline": {
+      "status": "success",
+      "response_time_ms": 1.027822494506836,
+      "response": "{\"type\":\"connection_established\",\"timestamp\":\"2025-07-24T11:47:05+05:30\"}\n"
+    }
+  },
+  "performance": {
+    "media_server_latency": {
+      "min_latency_ms": 1.2390613555908203,
+      "max_latency_ms": 11.946916580200195,
+      "avg_latency_ms": 4.578399658203125,
+      "median_latency_ms": 2.9709339141845703,
+      "std_deviation_ms": 4.241828558578904,
+      "success_rate": 1.0,
+      "results": [
+        {
+          "status": "success",
+          "response_time_ms": 0.9729862213134766,
+          "data": {
+            "ai_enabled": true,
+            "kafka": "connected",
+            "phase": "2",
+            "service": "voice-agent-media-server",
+            "status": "healthy",
+            "timestamp": "2025-07-24T06:17:05Z",
+            "version": "2.0.0"
+          },
+          "phase_2_enabled": true,
+          "ai_enabled": true,
+          "kafka_connected": true
+        },
+        {
+          "status": "success",
+          "response_time_ms": 1.9688606262207031,
+          "data": {
+            "ai_enabled": true,
+            "kafka": "connected",
+            "phase": "2",
+            "service": "voice-agent-media-server",
+            "status": "healthy",
+            "timestamp": "2025-07-24T06:17:05Z",
+            "version": "2.0.0"
+          },
+          "phase_2_enabled": true,
+          "ai_enabled": true,
+          "kafka_connected": true
+        },
+        {
+          "status": "success",
+          "response_time_ms": 10.553121566772461,
+          "data": {
+            "ai_enabled": true,
+            "kafka": "connected",
+            "phase": "2",
+            "service": "voice-agent-media-server",
+            "status": "healthy",
+            "timestamp": "2025-07-24T06:17:05Z",
+            "version": "2.0.0"
+          },
+          "phase_2_enabled": true,
+          "ai_enabled": true,
+          "kafka_connected": true
+        },
+        {
+          "status": "success",
+          "response_time_ms": 2.689838409423828,
+          "data": {
+            "ai_enabled": true,
+            "kafka": "connected",
+            "phase": "2",
+            "service": "voice-agent-media-server",
+            "status": "healthy",
+            "timestamp": "2025-07-24T06:17:05Z",
+            "version": "2.0.0"
+          },
+          "phase_2_enabled": true,
+          "ai_enabled": true,
+          "kafka_connected": true
+        },
+        {
+          "status": "success",
+          "response_time_ms": 2.380847930908203,
+          "data": {
+            "ai_enabled": true,
+            "kafka": "connected",
+            "phase": "2",
+            "service": "voice-agent-media-server",
+            "status": "healthy",
+            "timestamp": "2025-07-24T06:17:05Z",
+            "version": "2.0.0"
+          },
+          "phase_2_enabled": true,
+          "ai_enabled": true,
+          "kafka_connected": true
+        }
+      ]
+    },
+    "websocket_latency": {
+      "min_latency_ms": 2.444028854370117,
+      "max_latency_ms": 3.0121803283691406,
+      "avg_latency_ms": 2.6536782582600913,
+      "median_latency_ms": 2.5048255920410156,
+      "std_deviation_ms": 0.3119565058340848,
+      "success_rate": 1.0,
+      "results": [
+        {
+          "status": "success",
+          "connection_time_ms": 2.0940303802490234,
+          "response_time_ms": 2.1822452545166016,
+          "response": "{\"type\":\"connection_established\",\"timestamp\":\"2025-07-24T11:47:05+05:30\"}\n"
+        },
+        {
+          "status": "success",
+          "connection_time_ms": 2.312898635864258,
+          "response_time_ms": 2.4111270904541016,
+          "response": "{\"type\":\"connection_established\",\"timestamp\":\"2025-07-24T11:47:05+05:30\"}\n"
+        },
+        {
+          "status": "success",
+          "connection_time_ms": 1.8801689147949219,
+          "response_time_ms": 1.9390583038330078,
+          "response": "{\"type\":\"connection_established\",\"timestamp\":\"2025-07-24T11:47:05+05:30\"}\n"
+        }
+      ]
+    },
+    "ai_pipeline_latency": {
+      "min_latency_ms": 2.588987350463867,
+      "max_latency_ms": 3.3791065216064453,
+      "avg_latency_ms": 3.1060377756754556,
+      "median_latency_ms": 3.3500194549560547,
+      "std_deviation_ms": 0.44801492276507315,
+      "success_rate": 1.0,
+      "results": [
+        {
+          "status": "success",
+          "response_time_ms": 2.187013626098633,
+          "response": "{\"type\":\"connection_established\",\"timestamp\":\"2025-07-24T11:47:05+05:30\"}\n"
+        },
+        {
+          "status": "success",
+          "response_time_ms": 2.747058868408203,
+          "response": "{\"type\":\"connection_established\",\"timestamp\":\"2025-07-24T11:47:06+05:30\"}\n"
+        },
+        {
+          "status": "success",
+          "response_time_ms": 2.608060836791992,
+          "response": "{\"type\":\"connection_established\",\"timestamp\":\"2025-07-24T11:47:06+05:30\"}\n"
+        }
+      ]
+    }
+  },
+  "errors": [],
+  "summary": {
+    "total_test_time_seconds": 1.2076606750488281,
+    "services_healthy": 2,
+    "protocols_working": 3,
+    "overall_success_rate": 0.8333333333333334
+  }
+}

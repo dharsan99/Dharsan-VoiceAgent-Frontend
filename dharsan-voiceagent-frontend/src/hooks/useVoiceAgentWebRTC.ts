@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { getServiceUrls } from '../config/production';
 
-// WebRTC Configuration
+// WebRTC Configuration - will be overridden by production config
 const ICE_SERVERS = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
@@ -34,7 +35,9 @@ interface SessionInfo {
   duration: number;
 }
 
-export const useVoiceAgentWebRTC = (signalingUrl: string = `${import.meta.env.VITE_WEBSOCKET_URL_V3 || 'wss://dharsan99--voice-ai-backend-with-storage-voice-agent-app.modal.run/ws'}`) => {
+export const useVoiceAgentWebRTC = (signalingUrl?: string) => {
+  const { orchestratorWsUrl } = getServiceUrls();
+  const finalSignalingUrl = signalingUrl || orchestratorWsUrl;
   // State management
   const [state, setState] = useState<VoiceAgentState>({
     connectionStatus: 'disconnected',
@@ -124,7 +127,7 @@ export const useVoiceAgentWebRTC = (signalingUrl: string = `${import.meta.env.VI
       setState(prev => ({ ...prev, connectionStatus: 'connecting', error: null }));
 
       // Create session via HTTP first
-      const baseUrl = signalingUrl.replace('wss://', 'https://').replace('/ws/v2', '');
+      const baseUrl = finalSignalingUrl.replace('wss://', 'https://').replace('/ws/v2', '');
       const sessionResponse = await fetch(`${baseUrl}/v2/sessions`, {
         method: 'POST',
         headers: {
@@ -161,7 +164,7 @@ export const useVoiceAgentWebRTC = (signalingUrl: string = `${import.meta.env.VI
       });
 
       // Connect to signaling server with session ID
-      const socket = new WebSocket(`${signalingUrl}/${sessionId}`);
+      const socket = new WebSocket(`${finalSignalingUrl}/${sessionId}`);
       signalingSocketRef.current = socket;
 
       socket.onopen = async () => {
@@ -258,7 +261,7 @@ export const useVoiceAgentWebRTC = (signalingUrl: string = `${import.meta.env.VI
         error: error instanceof Error ? error.message : 'Connection failed'
       }));
     }
-  }, [signalingUrl, setupWebRTC]);
+  }, [finalSignalingUrl, setupWebRTC]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {

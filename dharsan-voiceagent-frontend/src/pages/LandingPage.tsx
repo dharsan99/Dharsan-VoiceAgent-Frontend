@@ -34,7 +34,7 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ title, description, icon, ver
 );
 
 const LandingPage: React.FC = () => {
-  const handleNavigate = (version: 'v1' | 'v2' | 'v3') => {
+  const handleNavigate = (version: 'v1' | 'v2' | 'v3' | 'v2phase1' | 'v2phase2' | 'v2phase5') => {
     navigateToDashboard(version);
   };
 
@@ -86,7 +86,7 @@ const LandingPage: React.FC = () => {
           </div>
 
           {/* Features Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 mb-12 sm:mb-16">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 mb-12 sm:mb-16">
             <FeatureCard
               title="Stable Voice Agent"
               description="Production-ready voice assistant with proven reliability and comprehensive error handling. Perfect for stable, long-running conversations."
@@ -99,16 +99,42 @@ const LandingPage: React.FC = () => {
               onClick={() => handleNavigate('v1')}
             />
             
+
+            
             <FeatureCard
-              title="Advanced Features"
-              description="Enhanced voice agent with modular architecture, advanced analytics, and cutting-edge features for power users and developers."
-              version="V2"
+              title="WebRTC Echo Test"
+              description="Test the new WebRTC WHIP protocol with ultra-low latency audio echo. Validate the media pipeline before AI integration."
+              version="V2 Phase 1"
               icon={
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                 </svg>
               }
-              onClick={() => handleNavigate('v2')}
+              onClick={() => handleNavigate('v2phase1')}
+            />
+            
+            <FeatureCard
+              title="AI Conversation Pipeline"
+              description="Full AI conversation with Google STT → LLM → TTS pipeline. Experience real-time AI responses with WebRTC WHIP protocol."
+              version="V2 Phase 2"
+              icon={
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+              }
+              onClick={() => handleNavigate('v2phase2')}
+            />
+            
+            <FeatureCard
+              title="Cost-Free Production"
+              description="GKE Autopilot deployment with qwen3:0.6b LLM. Full production-ready voice agent running on Google Cloud Free Tier."
+              version="V2 Phase 5"
+              icon={
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              }
+              onClick={() => handleNavigate('v2phase5')}
             />
             
             <FeatureCard

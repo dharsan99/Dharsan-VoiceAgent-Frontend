@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { getServiceUrls } from '../config/production';
 
 interface VoiceAgentState {
   connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
@@ -26,7 +27,9 @@ interface SessionInfo {
   duration: number;
 }
 
-export const useVoiceAgentV2 = (websocketUrl: string = `${import.meta.env.VITE_WEBSOCKET_URL_V2 || 'wss://dharsan99--voice-ai-backend-with-storage-voice-agent-app.modal.run/ws'}`) => {
+export const useVoiceAgentV2 = (websocketUrl?: string) => {
+  const { orchestratorWsUrl } = getServiceUrls();
+  const finalWebsocketUrl = websocketUrl || orchestratorWsUrl;
   const [state, setState] = useState<VoiceAgentState>({
     connectionStatus: 'disconnected',
     processingStatus: 'idle',
@@ -65,26 +68,12 @@ export const useVoiceAgentV2 = (websocketUrl: string = `${import.meta.env.VITE_W
     try {
       setState(prev => ({ ...prev, connectionStatus: 'connecting', error: null }));
 
-      // Create session via HTTP first
-      const baseUrl = websocketUrl.replace('wss://', 'https://').replace('/ws', '');
-      const sessionResponse = await fetch(`${baseUrl}/sessions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!sessionResponse.ok) {
-        throw new Error('Failed to create session');
-      }
-      
-      const sessionData = await sessionResponse.json();
-      const sessionId = sessionData.session_id;
+      // Generate a unique session ID
+      const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       setState(prev => ({ ...prev, sessionId }));
 
-      // Connect to session-specific WebSocket
-      const sessionWsUrl = `${websocketUrl}`;
-      const ws = new WebSocket(sessionWsUrl);
+      // Connect directly to WebSocket
+      const ws = new WebSocket(finalWebsocketUrl);
       websocketRef.current = ws;
 
       ws.onopen = () => {
@@ -133,7 +122,7 @@ export const useVoiceAgentV2 = (websocketUrl: string = `${import.meta.env.VITE_W
         error: error instanceof Error ? error.message : 'Connection failed'
       }));
     }
-  }, [websocketUrl]);
+      }, [finalWebsocketUrl]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -348,22 +337,20 @@ export const useVoiceAgentV2 = (websocketUrl: string = `${import.meta.env.VITE_W
     }, 5000); // 5 seconds
   }, [connect]);
 
-  // Session management
+  // Session management - simplified since orchestrator doesn't have session endpoints
   const fetchSessionInfo = useCallback(async () => {
-    try {
-      const baseUrl = websocketUrl.replace('wss://', 'https://').replace('/ws', '');
-      const response = await fetch(`${baseUrl}/sessions`);
-      if (response.ok) {
-        const data = await response.json();
-        const currentSession = data.sessions.find((s: any) => s.id === state.sessionId);
-        if (currentSession) {
-          setSessionInfo(currentSession);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch session info:', error);
+    // Create basic session info since orchestrator doesn't provide session management
+    if (state.sessionId) {
+      const sessionInfo: SessionInfo = {
+        sessionId: state.sessionId,
+        startTime: new Date().toISOString(),
+        messagesProcessed: 0,
+        errorsCount: 0,
+        duration: 0
+      };
+      setSessionInfo(sessionInfo);
     }
-  }, [state.sessionId, websocketUrl]);
+  }, [state.sessionId]);
 
   // Cleanup on unmount
   useEffect(() => {

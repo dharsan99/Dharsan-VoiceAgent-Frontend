@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Basic Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .log { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        button { padding: 10px 20px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>WebRTC Basic Connection Test</h1>
+    <button onclick="testWebRTC()">Test WebRTC Connection</button>
+    <button onclick="testMediaAccess()">Test Media Access</button>
+    <div id="logs" class="log"></div>
+
+    <script>
+        function log(message) {
+            const logs = document.getElementById('logs');
+            logs.innerHTML += '<div>' + new Date().toLocaleTimeString() + ': ' + message + '</div>';
+            console.log(message);
+        }
+
+        async function testMediaAccess() {
+            try {
+                log('🎤 Testing media access...');
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                        sampleRate: 48000
+                    }
+                });
+                log('✅ Media access successful!');
+                log('📊 Tracks: ' + stream.getTracks().map(t => `${t.kind} (${t.id})`).join(', '));
+                
+                // Stop the stream
+                stream.getTracks().forEach(track => track.stop());
+                log('🛑 Media stream stopped');
+            } catch (error) {
+                log('❌ Media access failed: ' + error.message);
+            }
+        }
+
+        async function testWebRTC() {
+            try {
+                log('🔗 Testing WebRTC connection...');
+                
+                // Create peer connection
+                const peerConnection = new RTCPeerConnection({
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' }
+                    ]
+                });
+                
+                log('📡 Peer connection created');
+                
+                // Add event listeners
+                peerConnection.onconnectionstatechange = () => {
+                    log('🔄 Connection state: ' + peerConnection.connectionState);
+                };
+                
+                peerConnection.oniceconnectionstatechange = () => {
+                    log('🧊 ICE connection state: ' + peerConnection.iceConnectionState);
+                };
+                
+                peerConnection.onicegatheringstatechange = () => {
+                    log('🔍 ICE gathering state: ' + peerConnection.iceGatheringState);
+                };
+                
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        log('🎯 ICE candidate: ' + event.candidate.candidate);
+                    } else {
+                        log('✅ ICE gathering complete');
+                    }
+                };
+                
+                // Get media stream
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                        sampleRate: 48000
+                    }
+                });
+                
+                log('🎤 Media stream obtained');
+                
+                // Add tracks to peer connection
+                stream.getTracks().forEach(track => {
+                    log('➕ Adding track: ' + track.kind);
+                    peerConnection.addTrack(track, stream);
+                });
+                
+                // Create offer
+                log('📝 Creating offer...');
+                const offer = await peerConnection.createOffer();
+                log('📄 Offer created: ' + offer.type);
+                
+                // Set local description
+                await peerConnection.setLocalDescription(offer);
+                log('📋 Local description set');
+                
+                // Wait a bit to see state changes
+                setTimeout(() => {
+                    log('⏰ Final states after 3 seconds:');
+                    log('   Connection: ' + peerConnection.connectionState);
+                    log('   ICE Connection: ' + peerConnection.iceConnectionState);
+                    log('   ICE Gathering: ' + peerConnection.iceGatheringState);
+                    log('   Signaling: ' + peerConnection.signalingState);
+                    
+                    // Cleanup
+                    peerConnection.close();
+                    stream.getTracks().forEach(track => track.stop());
+                    log('🧹 Cleanup complete');
+                }, 3000);
+                
+            } catch (error) {
+                log('❌ WebRTC test failed: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html> 

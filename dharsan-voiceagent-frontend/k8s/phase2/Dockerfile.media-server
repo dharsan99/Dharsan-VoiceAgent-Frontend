@@ -1,0 +1,16 @@
+FROM alpine:latest
+
+# Install ca-certificates for HTTPS requests
+RUN apk --no-cache add ca-certificates
+
+# Copy the compiled binary
+COPY media-server-binary /usr/local/bin/media-server
+
+# Make it executable
+RUN chmod +x /usr/local/bin/media-server
+
+# Expose port
+EXPOSE 8080
+
+# Run the binary
+CMD ["/usr/local/bin/media-server"] 

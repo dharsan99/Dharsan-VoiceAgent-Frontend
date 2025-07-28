@@ -6,8 +6,16 @@ export const navigateTo = (path: string) => {
   window.dispatchEvent(new PopStateEvent('popstate'));
 };
 
-export const navigateToDashboard = (version: 'v1' | 'v2' | 'v3') => {
-  navigateTo(`/${version}/dashboard`);
+export const navigateToDashboard = (version: 'v1' | 'v2' | 'v3' | 'v2phase1' | 'v2phase2' | 'v2phase5') => {
+  if (version === 'v2phase1') {
+    navigateTo('/v2/phase1');
+  } else if (version === 'v2phase2') {
+    navigateTo('/v2/phase2');
+  } else if (version === 'v2phase5') {
+    navigateTo('/v2/phase5');
+  } else {
+    navigateTo(`/${version}/dashboard`);
+  }
 };
 
 export const navigateToHome = () => {

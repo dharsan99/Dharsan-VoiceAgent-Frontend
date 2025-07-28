@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useVoiceAgentV2 } from '../hooks/useVoiceAgentV2';
+import { useVoiceAgentWHIP } from '../hooks/useVoiceAgentWHIP_fixed';
 import { navigateToHome } from '../utils/navigation';
 
 // Icons component
@@ -88,20 +88,24 @@ const V2Dashboard: React.FC = () => {
   }, [isInitialized]);
 
   // V2 Voice Agent
-  const v2VoiceAgent = useVoiceAgentV2();
+  const [v2State, v2Actions] = useVoiceAgentWHIP();
   
   const {
     connectionStatus,
-    processingStatus,
     sessionId,
     transcript,
-    interimTranscript,
-    aiResponse,
-
-    isRecording,
+    isListening,
+    error,
+    isConnected,
+    isConnecting
+  } = v2State;
+  
+  const {
     connect,
     disconnect,
-  } = v2VoiceAgent;
+    startListening,
+    stopListening
+  } = v2Actions;
 
   const handleToggleConversation = () => {
     if (connectionStatus === 'connected') {
@@ -111,51 +115,57 @@ const V2Dashboard: React.FC = () => {
     }
   };
 
-  const getStatusInfo = () => {
-    switch (processingStatus) {
-      case 'idle':
-        return { 
-          text: 'Idle - Ready to listen', 
-          color: 'bg-gray-500', 
-          icon: <Icons.Idle />, 
-          bgGradient: 'from-gray-500 to-gray-600' 
-        };
-      case 'listening':
-        return { 
-          text: 'Listening...', 
-          color: 'bg-green-500 animate-pulse', 
-          icon: <Icons.Microphone />, 
-          bgGradient: 'from-green-500 to-green-600' 
-        };
-      case 'processing':
-        return { 
-          text: 'AI Processing...', 
-          color: 'bg-yellow-500 animate-pulse', 
-          icon: <Icons.Processing />, 
-          bgGradient: 'from-yellow-500 to-yellow-600' 
-        };
-      case 'speaking':
-        return { 
-          text: 'AI Speaking...', 
-          color: 'bg-blue-500 animate-pulse', 
-          icon: <Icons.Speaker />, 
-          bgGradient: 'from-blue-500 to-blue-600' 
-        };
-      case 'error':
-        return { 
-          text: 'Error', 
-          color: 'bg-red-500', 
-          icon: <Icons.Error />, 
-          bgGradient: 'from-red-500 to-red-600' 
-        };
-      default:
-        return { 
-          text: 'Unknown', 
-          color: 'bg-gray-500', 
-          icon: <Icons.Idle />, 
-          bgGradient: 'from-gray-500 to-gray-600' 
-        };
+  const handleToggleListening = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
     }
+  };
+
+  const getStatusInfo = () => {
+    if (error) {
+      return { 
+        text: 'Error', 
+        color: 'bg-red-500', 
+        icon: <Icons.Error />, 
+        bgGradient: 'from-red-500 to-red-600' 
+      };
+    }
+    
+    if (isConnecting) {
+      return { 
+        text: 'Connecting...', 
+        color: 'bg-yellow-500 animate-pulse', 
+        icon: <Icons.Processing />, 
+        bgGradient: 'from-yellow-500 to-yellow-600' 
+      };
+    }
+    
+    if (isConnected && isListening) {
+      return { 
+        text: 'Listening...', 
+        color: 'bg-green-500 animate-pulse', 
+        icon: <Icons.Microphone />, 
+        bgGradient: 'from-green-500 to-green-600' 
+      };
+    }
+    
+    if (isConnected) {
+      return { 
+        text: 'Connected - Ready to listen', 
+        color: 'bg-blue-500', 
+        icon: <Icons.Speaker />, 
+        bgGradient: 'from-blue-500 to-blue-600' 
+      };
+    }
+    
+    return { 
+      text: 'Disconnected', 
+      color: 'bg-gray-500', 
+      icon: <Icons.Idle />, 
+      bgGradient: 'from-gray-500 to-gray-600' 
+    };
   };
 
   const statusInfo = getStatusInfo();
@@ -198,26 +208,45 @@ const V2Dashboard: React.FC = () => {
                 <Icons.Controls />
                 Controls
               </h2>
-              <button
-                onClick={handleToggleConversation}
-                disabled={connectionStatus === 'connecting'}
-                className={`w-full px-4 sm:px-6 py-3 sm:py-4 text-base sm:text-lg font-bold rounded-xl transition-all duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-cyan-500/50 shadow-lg flex items-center justify-center gap-2
-                  ${connectionStatus === 'connected' 
-                    ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800' 
-                    : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700'
+              <div className="space-y-3">
+                <button
+                  onClick={handleToggleConversation}
+                  disabled={connectionStatus === 'connecting'}
+                  className={`w-full px-4 sm:px-6 py-3 sm:py-4 text-base sm:text-lg font-bold rounded-xl transition-all duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-cyan-500/50 shadow-lg flex items-center justify-center gap-2
+                    ${connectionStatus === 'connected' 
+                      ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800' 
+                      : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700'
+                    }
+                    ${connectionStatus === 'connecting' 
+                      ? 'bg-gray-600 cursor-not-allowed opacity-50' 
+                      : 'transform hover:scale-105 active:scale-95 hover:shadow-2xl'
+                    }`}
+                >
+                  {connectionStatus === 'connecting' 
+                    ? <><Icons.Loading /> Connecting...</>
+                    : connectionStatus === 'connected' 
+                      ? <><Icons.Stop /> Stop Conversation</>
+                      : <><Icons.Play /> Start Conversation</>
                   }
-                  ${connectionStatus === 'connecting' 
-                    ? 'bg-gray-600 cursor-not-allowed opacity-50' 
-                    : 'transform hover:scale-105 active:scale-95 hover:shadow-2xl'
-                  }`}
-              >
-                {connectionStatus === 'connecting' 
-                  ? <><Icons.Loading /> Connecting...</>
-                  : connectionStatus === 'connected' 
-                    ? <><Icons.Stop /> Stop Conversation</>
-                    : <><Icons.Play /> Start Conversation</>
-                }
-              </button>
+                </button>
+                
+                {isConnected && (
+                  <button
+                    onClick={handleToggleListening}
+                    className={`w-full px-4 sm:px-6 py-3 sm:py-4 text-base sm:text-lg font-bold rounded-xl transition-all duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-cyan-500/50 shadow-lg flex items-center justify-center gap-2 transform hover:scale-105 active:scale-95 hover:shadow-2xl ${
+                      isListening
+                        ? 'bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800'
+                        : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800'
+                    }`}
+                  >
+                    {isListening ? (
+                      <><Icons.Microphone /> Stop Listening</>
+                    ) : (
+                      <><Icons.Microphone /> Start Listening</>
+                    )}
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Connection Status Panel */}
@@ -256,11 +285,11 @@ const V2Dashboard: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${isRecording ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></div>
+                  <div className={`w-3 h-3 rounded-full ${isListening ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></div>
                   <div>
-                    <div className="text-white font-medium">Recording:</div>
+                    <div className="text-white font-medium">Listening:</div>
                     <div className="text-sm text-gray-400">
-                      {isRecording ? 'Active' : 'Inactive'}
+                      {isListening ? 'Active' : 'Inactive'}
                     </div>
                   </div>
                 </div>
@@ -283,16 +312,10 @@ const V2Dashboard: React.FC = () => {
                     <div className="text-white">{transcript}</div>
                   </div>
                 )}
-                {interimTranscript && (
-                  <div className="bg-gray-700/50 p-3 rounded-lg">
-                    <div className="text-sm text-gray-400 mb-1">Interim Transcript:</div>
-                    <div className="text-white italic">{interimTranscript}</div>
-                  </div>
-                )}
-                {aiResponse && (
-                  <div className="bg-blue-900/50 p-3 rounded-lg border-l-4 border-blue-500">
-                    <div className="text-sm text-blue-400 mb-1">AI Response:</div>
-                    <div className="text-white">{aiResponse}</div>
+                {error && (
+                  <div className="bg-red-900/50 p-3 rounded-lg border-l-4 border-red-500">
+                    <div className="text-sm text-red-400 mb-1">Error:</div>
+                    <div className="text-white">{error}</div>
                   </div>
                 )}
               </div>
