@@ -2,9 +2,9 @@
 export const PRODUCTION_CONFIG = {
   // GKE Phase 5 Production URLs
   WHIP_URL: 'https://35.244.8.62:8001/whip', // Media Server LoadBalancer IP
-  ORCHESTRATOR_WS_URL: 'wss://34.47.230.178:8001/ws', // Orchestrator WebSocket
-  ORCHESTRATOR_HTTP_URL: 'https://34.47.230.178:8001', // Orchestrator HTTP API
-  ORCHESTRATOR_GRPC_URL: 'wss://34.47.230.178:8001/grpc', // Orchestrator gRPC WebSocket
+  ORCHESTRATOR_WS_URL: 'wss://35.244.33.111:443/ws', // Orchestrator WebSocket (HTTPS)
+  ORCHESTRATOR_HTTP_URL: 'https://35.244.33.111:443', // Orchestrator HTTP API (HTTPS)
+  ORCHESTRATOR_GRPC_URL: 'wss://35.244.33.111:443/grpc', // Orchestrator gRPC WebSocket (HTTPS)
   
   // Service URLs (internal cluster IPs - for reference)
   STT_SERVICE_URL: 'http://34.118.229.142:8000', // STT Service
