@@ -70,7 +70,7 @@ export const useVoiceAgentEventDriven = (): [VoiceAgentEventDrivenState, VoiceAg
       setState(prev => ({ ...prev, sessionId }));
 
       // Connect to WebSocket
-      const wsUrl = 'ws://35.244.33.111:8001/ws';
+      const wsUrl = 'wss://35.244.33.111:443/ws';
       const ws = new WebSocket(wsUrl);
       websocketRef.current = ws;
 
@@ -299,7 +299,7 @@ export const useVoiceAgentEventDriven = (): [VoiceAgentEventDrivenState, VoiceAg
       console.log('🎵 Test: Requesting TTS test audio...');
       
       // Make a direct request to the TTS service
-      const response = await fetch('http://35.244.33.111:8001/synthesize', {
+              const response = await fetch('https://35.244.33.111:443/synthesize', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
