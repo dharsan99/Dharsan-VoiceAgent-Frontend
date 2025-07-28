@@ -24,23 +24,23 @@ export const DEVELOPMENT_CONFIG = {
     // TURN servers with authentication
     {
       urls: 'turn:global.relay.metered.ca:80',
-      username: process.env.VITE_TURN_USERNAME || '10f1dfa42670d72b3a31482a',
-      credential: process.env.VITE_TURN_CREDENTIAL || 'FvFd4gNrt9+OZk4r',
+      username: import.meta.env.VITE_TURN_USERNAME || '10f1dfa42670d72b3a31482a',
+      credential: import.meta.env.VITE_TURN_CREDENTIAL || 'FvFd4gNrt9+OZk4r',
     },
     {
       urls: 'turn:global.relay.metered.ca:80?transport=tcp',
-      username: process.env.VITE_TURN_USERNAME || '10f1dfa42670d72b3a31482a',
-      credential: process.env.VITE_TURN_CREDENTIAL || 'FvFd4gNrt9+OZk4r',
+      username: import.meta.env.VITE_TURN_USERNAME || '10f1dfa42670d72b3a31482a',
+      credential: import.meta.env.VITE_TURN_CREDENTIAL || 'FvFd4gNrt9+OZk4r',
     },
     {
       urls: 'turn:global.relay.metered.ca:443',
-      username: process.env.VITE_TURN_USERNAME || '10f1dfa42670d72b3a31482a',
-      credential: process.env.VITE_TURN_CREDENTIAL || 'FvFd4gNrt9+OZk4r',
+      username: import.meta.env.VITE_TURN_USERNAME || '10f1dfa42670d72b3a31482a',
+      credential: import.meta.env.VITE_TURN_CREDENTIAL || 'FvFd4gNrt9+OZk4r',
     },
     {
       urls: 'turns:global.relay.metered.ca:443?transport=tcp',
-      username: process.env.VITE_TURN_USERNAME || '10f1dfa42670d72b3a31482a',
-      credential: process.env.VITE_TURN_CREDENTIAL || 'FvFd4gNrt9+OZk4r',
+      username: import.meta.env.VITE_TURN_USERNAME || '10f1dfa42670d72b3a31482a',
+      credential: import.meta.env.VITE_TURN_CREDENTIAL || 'FvFd4gNrt9+OZk4r',
     },
   ],
   

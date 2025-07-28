@@ -207,6 +207,21 @@ export const useVoiceAgentEventDriven = (): [VoiceAgentEventDrivenState, VoiceAg
           }));
           break;
           
+        case 'processing_complete':
+          console.log('✅ Processing complete:', data.response);
+          setState(prev => ({ 
+            ...prev, 
+            aiResponse: data.response || '',
+            agentStatus: 'speaking',
+            conversationHistory: [...prev.conversationHistory, {
+              id: `ai_${Date.now()}`,
+              type: 'ai',
+              text: data.response || '',
+              timestamp: new Date()
+            }]
+          }));
+          break;
+          
         case 'tts_audio_chunk':
           if (data.audio_data) {
             console.log('🎵 Received TTS audio chunk');
@@ -215,6 +230,25 @@ export const useVoiceAgentEventDriven = (): [VoiceAgentEventDrivenState, VoiceAg
             console.log('🎵 Decoded audio data size:', audioData.byteLength, 'bytes');
             audioQueueRef.current.push(audioData);
             playNextAudioChunk();
+            
+            // Check if this is a system message (like "speak louder")
+            const lastMessage = state.conversationHistory[state.conversationHistory.length - 1];
+            const isSystemMessage = lastMessage && lastMessage.type === 'system';
+            
+            // Only create AI response placeholder if this isn't a system message
+            if (!state.aiResponse && !isSystemMessage) {
+              setState(prev => ({ 
+                ...prev, 
+                aiResponse: 'AI response received (audio playing)',
+                agentStatus: 'speaking',
+                conversationHistory: [...prev.conversationHistory, {
+                  id: `ai_${Date.now()}`,
+                  type: 'ai',
+                  text: 'AI response received (audio playing)',
+                  timestamp: new Date()
+                }]
+              }));
+            }
           }
           break;
           
@@ -420,6 +454,9 @@ export const useVoiceAgentEventDriven = (): [VoiceAgentEventDrivenState, VoiceAg
                // Play next chunk if available
                if (audioQueueRef.current.length > 0) {
                  playNextAudioChunk();
+               } else {
+                 // No more chunks to play, reset agent status
+                 setState(prev => ({ ...prev, agentStatus: 'idle' }));
                }
              };
              
@@ -492,7 +529,20 @@ export const useVoiceAgentEventDriven = (): [VoiceAgentEventDrivenState, VoiceAg
         if (event.data.size > 0) {
           event.data.arrayBuffer().then(buffer => {
             console.log(`🎵 Captured audio chunk: ${buffer.byteLength} bytes`);
-            // Audio processing is handled by the backend pipeline
+            
+            // Convert audio data to base64 and send to orchestrator
+            const audioData = new Uint8Array(buffer);
+            const base64Audio = btoa(String.fromCharCode(...audioData));
+            
+            if (websocketRef.current?.readyState === WebSocket.OPEN && state.sessionId) {
+              websocketRef.current.send(JSON.stringify({
+                event: 'audio_data',
+                audio_data: base64Audio,
+                session_id: state.sessionId,
+                is_final: false
+              }));
+              console.log(`📤 Sent audio chunk: ${buffer.byteLength} bytes as base64`);
+            }
           });
         }
       };
@@ -514,13 +564,66 @@ export const useVoiceAgentEventDriven = (): [VoiceAgentEventDrivenState, VoiceAg
   const stopListening = useCallback(() => {
     if (state.agentStatus !== 'listening') return;
     
+    // Send final audio chunk signal
+    if (websocketRef.current?.readyState === WebSocket.OPEN && state.sessionId) {
+      websocketRef.current.send(JSON.stringify({
+        event: 'audio_data',
+        audio_data: '', // Empty audio data to signal end of stream
+        session_id: state.sessionId,
+        is_final: true
+      }));
+      console.log('📤 Sent final audio chunk signal');
+    }
+    
     stopMediaStream();
     setState(prev => ({ ...prev, agentStatus: 'thinking' }));
     
     // Send trigger_llm event with final transcript
-    const finalTranscript = state.interimTranscript || state.transcript || "Hello, this is a test message from the event-driven voice agent.";
+    let finalTranscript = state.interimTranscript || state.transcript;
+    
+    if (!finalTranscript || !finalTranscript.trim()) {
+      // If no transcript available, ask user to speak louder via TTS
+      console.log("🛑 No transcript available, requesting TTS for 'speak louder' message");
+      
+      if (websocketRef.current?.readyState === WebSocket.OPEN && state.sessionId) {
+        websocketRef.current.send(JSON.stringify({
+          event: 'tts_request',
+          text: "I couldn't hear you, could you speak up louder please?",
+          session_id: state.sessionId,
+          voice: 'en_US-lessac-high',
+          speed: 1.0,
+          format: 'wav'
+        }));
+        
+        // Add system message to conversation history
+        setState(prev => ({
+          ...prev,
+          conversationHistory: [...prev.conversationHistory, {
+            id: `system_${Date.now()}`,
+            type: 'system',
+            text: "I couldn't hear you, could you speak up louder please?",
+            timestamp: new Date()
+          }],
+          agentStatus: 'speaking'
+        }));
+        
+        console.log("📤 Sent TTS request for 'speak louder' message");
+        return; // Don't proceed with LLM processing
+      }
+    }
     
     if (websocketRef.current?.readyState === WebSocket.OPEN && state.sessionId) {
+      // Add user message to conversation history
+      setState(prev => ({
+        ...prev,
+        conversationHistory: [...prev.conversationHistory, {
+          id: `user_${Date.now()}`,
+          type: 'user',
+          text: finalTranscript,
+          timestamp: new Date()
+        }]
+      }));
+      
       websocketRef.current.send(JSON.stringify({
         event: 'trigger_llm',
         final_transcript: finalTranscript,

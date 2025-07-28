@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test TTS "Speak Louder" Functionality</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            margin-top: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.connecting {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test TTS "Speak Louder" Functionality</h1>
+        
+        <div id="status" class="status disconnected">Disconnected</div>
+        
+        <div>
+            <button onclick="connect()">Connect to Orchestrator</button>
+            <button onclick="sendTTSRequest()" id="ttsBtn" disabled>Send TTS Request</button>
+            <button onclick="disconnect()">Disconnect</button>
+        </div>
+        
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        let websocket = null;
+        let audioContext = null;
+        let audioQueue = [];
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toISOString();
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateStatus(status, className) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = status;
+            statusDiv.className = `status ${className}`;
+        }
+
+        function connect() {
+            const orchestratorUrl = 'wss://35.244.33.111:443/ws';
+            
+            log(`Connecting to orchestrator: ${orchestratorUrl}`);
+            updateStatus('Connecting...', 'connecting');
+            
+            websocket = new WebSocket(orchestratorUrl);
+            
+            websocket.onopen = function() {
+                log('✅ WebSocket connected');
+                updateStatus('Connected', 'connected');
+                document.getElementById('ttsBtn').disabled = false;
+            };
+            
+            websocket.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    log(`📥 Received: ${JSON.stringify(data, null, 2)}`);
+                    
+                    // Handle TTS audio chunk
+                    if (data.event === 'tts_audio_chunk' && data.audio_data) {
+                        log(`🎵 Received TTS audio chunk: ${data.audio_data.length} chars`);
+                        playAudioChunk(data.audio_data);
+                    }
+                } catch (e) {
+                    log(`📥 Received raw: ${event.data}`);
+                }
+            };
+            
+            websocket.onerror = function(error) {
+                log(`❌ WebSocket error: ${error}`);
+                updateStatus('Error', 'disconnected');
+            };
+            
+            websocket.onclose = function() {
+                log('🔌 WebSocket disconnected');
+                updateStatus('Disconnected', 'disconnected');
+                document.getElementById('ttsBtn').disabled = true;
+            };
+        }
+
+        function sendTTSRequest() {
+            if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+                log('❌ WebSocket not connected');
+                return;
+            }
+
+            const ttsRequest = {
+                event: 'tts_request',
+                text: "I couldn't hear you, could you speak up louder please?",
+                session_id: 'test_session_' + Date.now(),
+                voice: 'en_US-lessac-high',
+                speed: 1.0,
+                format: 'wav'
+            };
+
+            log(`📤 Sending TTS request: ${JSON.stringify(ttsRequest, null, 2)}`);
+            websocket.send(JSON.stringify(ttsRequest));
+        }
+
+        function disconnect() {
+            if (websocket) {
+                websocket.close();
+            }
+        }
+
+        function playAudioChunk(base64Audio) {
+            try {
+                // Decode base64 audio
+                const audioData = Uint8Array.from(atob(base64Audio), c => c.charCodeAt(0));
+                log(`🎵 Decoded audio data: ${audioData.byteLength} bytes`);
+
+                // Initialize audio context if needed
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+
+                // Decode and play audio
+                audioContext.decodeAudioData(audioData.buffer, function(buffer) {
+                    const source = audioContext.createBufferSource();
+                    source.buffer = buffer;
+                    source.connect(audioContext.destination);
+                    source.start();
+                    log('🎵 Playing audio chunk');
+                }, function(error) {
+                    log(`❌ Error decoding audio: ${error}`);
+                });
+
+            } catch (error) {
+                log(`❌ Error playing audio: ${error}`);
+            }
+        }
+
+        // Initialize
+        log('🚀 TTS "Speak Louder" Test Page Loaded');
+        log('Click "Connect to Orchestrator" to start testing');
+    </script>
+</body>
+</html> 
