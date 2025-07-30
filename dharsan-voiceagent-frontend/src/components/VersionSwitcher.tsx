@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getServiceUrls } from '../config/production';
 
 interface VersionInfo {
   name: string;
@@ -38,8 +39,9 @@ const VersionSwitcher: React.FC<VersionSwitcherProps> = ({
     try {
       setLoading(true);
       console.log('Fetching versions from backend...');
-      // Use the same base URL as the WebSocket connection
-      const baseUrl = (import.meta.env.VITE_WEBSOCKET_URL || 'wss://dharsan99--voice-ai-backend-unified-standalone-run-app.modal.run/v1/ws').replace('ws://', 'http://').replace('wss://', 'https://').replace('/ws', '');
+      // Use the unified config system
+      const { orchestratorHttpUrl } = getServiceUrls();
+      const baseUrl = orchestratorHttpUrl;
       console.log('Base URL:', baseUrl);
       const response = await fetch(`${baseUrl}/versions`);
       console.log('Response status:', response.status);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getServiceUrls } from '../config/production';
 
 interface CloudStorageStats {
   sessions: number;
@@ -62,7 +63,8 @@ export const CloudStorageManager: React.FC<CloudStorageManagerProps> = ({ isVisi
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://dharsan99--voice-ai-backend-with-storage-voice-agent-app.modal.run';
+  const { orchestratorHttpUrl } = getServiceUrls();
+  const backendUrl = orchestratorHttpUrl;
 
   useEffect(() => {
     if (isVisible) {

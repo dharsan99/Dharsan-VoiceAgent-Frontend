@@ -1,13 +1,13 @@
 // Development Configuration for Testing
 export const DEVELOPMENT_CONFIG = {
-  // Development URLs (HTTPS/WSS for testing with new secure backend)
-  WHIP_URL: 'https://35.244.8.62:8001/whip', // Media Server LoadBalancer IP
-  ORCHESTRATOR_WS_URL: 'wss://35.244.33.111:443/ws', // Orchestrator WebSocket (HTTPS)
-  ORCHESTRATOR_HTTP_URL: 'https://35.244.33.111:443', // Orchestrator HTTP API (HTTPS)
-  ORCHESTRATOR_GRPC_URL: 'wss://35.244.33.111:443/grpc', // Orchestrator gRPC WebSocket (HTTPS)
+  // Development URLs (Local development) - Using environment variables
+  WHIP_URL: import.meta.env.VITE_WHIP_URL || 'http://localhost:8001/whip',
+  ORCHESTRATOR_WS_URL: import.meta.env.VITE_WEBSOCKET_URL || 'ws://localhost:8004/ws',
+  ORCHESTRATOR_HTTP_URL: import.meta.env.VITE_BACKEND_URL || 'http://localhost:8004',
+  ORCHESTRATOR_GRPC_URL: import.meta.env.VITE_WEBSOCKET_URL?.replace('/ws', '/grpc') || 'ws://localhost:8004/grpc',
   
   // Environment
-  ENVIRONMENT: 'development',
+  ENVIRONMENT: import.meta.env.VITE_ENVIRONMENT || 'development',
   VERSION: '5.0.0-dev',
   
   // Connection settings (same as production)

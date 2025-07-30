@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { KpiChart } from './KpiChart';
+import BackendLogs from '../dashboard/BackendLogs';
 
 interface ChatMessage {
   timestamp: string;
@@ -33,7 +34,7 @@ interface SessionAnalyticsProps {
 export const SessionAnalytics: React.FC<SessionAnalyticsProps> = ({ onClose }) => {
   const [kpiHistory, setKpiHistory] = useState<KpiDataPoint[]>([]);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
-  const [activeTab, setActiveTab] = useState<'performance' | 'conversation'>('performance');
+  const [activeTab, setActiveTab] = useState<'performance' | 'conversation' | 'backend-logs'>('performance');
 
   useEffect(() => {
     setKpiHistory(getSessionData('session_kpis'));
@@ -176,6 +177,22 @@ export const SessionAnalytics: React.FC<SessionAnalyticsProps> = ({ onClose }) =
               <span className="sm:hidden">Chat</span>
             </div>
           </button>
+          <button
+            onClick={() => setActiveTab('backend-logs')}
+            className={`flex-1 px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-colors duration-200 ${
+              activeTab === 'backend-logs'
+                ? 'text-cyan-400 border-b-2 border-cyan-400 bg-cyan-400/10'
+                : 'text-gray-400 hover:text-gray-300 hover:bg-gray-800/50'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-1 sm:gap-2">
+              <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              <span className="hidden sm:inline">Backend Logs</span>
+              <span className="sm:hidden">Logs</span>
+            </div>
+          </button>
         </div>
 
         {/* Content */}
@@ -233,7 +250,7 @@ export const SessionAnalytics: React.FC<SessionAnalyticsProps> = ({ onClose }) =
                 </div>
               </div>
             </div>
-          ) : (
+          ) : activeTab === 'conversation' ? (
             <div className="space-y-4 sm:space-y-6">
               <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 overflow-hidden">
                 <div className="p-3 sm:p-4 border-b border-gray-700/50">
@@ -325,6 +342,8 @@ export const SessionAnalytics: React.FC<SessionAnalyticsProps> = ({ onClose }) =
                 </div>
               </div>
             </div>
+          ) : (
+            <BackendLogs />
           )}
         </div>
       </div>

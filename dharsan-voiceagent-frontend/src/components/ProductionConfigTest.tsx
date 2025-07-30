@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { getServiceUrls, PRODUCTION_CONFIG } from '../config/production';
+import React, { useState, useEffect, useMemo } from 'react';
+import { getServiceUrls } from '../config/production';
 
 interface TestResult {
   service: string;
@@ -12,20 +12,32 @@ const ProductionConfigTest: React.FC = () => {
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [isTesting, setIsTesting] = useState(false);
 
+  // Debug: Track component renders
+  console.log('🔧 [CONFIG_TEST] Component rendered');
+
+  // Memoize service URLs to prevent re-renders
+  const serviceUrls = useMemo(() => {
+    console.log('🔧 [CONFIG_TEST] Memoizing service URLs');
+    return getServiceUrls();
+  }, []);
+  const isProduction = useMemo(() => serviceUrls.whipUrl.includes('localhost') ? false : true, [serviceUrls.whipUrl]);
+  const forceProduction = useMemo(() => new URLSearchParams(window.location.search).get('production') === 'true', []);
+
   const runTests = async () => {
     setIsTesting(true);
     const results: TestResult[] = [];
+    const { whipUrl, orchestratorHttpUrl, orchestratorWsUrl } = getServiceUrls();
     
     // Test 1: WHIP Endpoint
     results.push({
       service: 'WHIP Endpoint',
       status: 'pending',
       message: 'Testing...',
-      url: PRODUCTION_CONFIG.WHIP_URL
+      url: whipUrl
     });
     
     try {
-      const response = await fetch(PRODUCTION_CONFIG.WHIP_URL, {
+      const response = await fetch(whipUrl, {
         method: 'OPTIONS',
         headers: { 'Content-Type': 'application/sdp' }
       });
@@ -47,11 +59,11 @@ const ProductionConfigTest: React.FC = () => {
       service: 'Orchestrator HTTP',
       status: 'pending',
       message: 'Testing...',
-      url: PRODUCTION_CONFIG.ORCHESTRATOR_HTTP_URL
+      url: orchestratorHttpUrl
     });
     
     try {
-      const response = await fetch(`${PRODUCTION_CONFIG.ORCHESTRATOR_HTTP_URL}/health`);
+      const response = await fetch(`${orchestratorHttpUrl}/health`);
       if (response.ok) {
         const data = await response.json();
         results[1].status = 'success';
@@ -70,11 +82,11 @@ const ProductionConfigTest: React.FC = () => {
       service: 'Orchestrator WebSocket',
       status: 'pending',
       message: 'Testing...',
-      url: PRODUCTION_CONFIG.ORCHESTRATOR_WS_URL
+      url: orchestratorWsUrl
     });
     
     try {
-      const ws = new WebSocket(PRODUCTION_CONFIG.ORCHESTRATOR_WS_URL);
+      const ws = new WebSocket(orchestratorWsUrl);
       
       const wsPromise = new Promise<boolean>((resolve) => {
         const timeout = setTimeout(() => {
@@ -109,10 +121,6 @@ const ProductionConfigTest: React.FC = () => {
     setTestResults(results);
     setIsTesting(false);
   };
-
-  useEffect(() => {
-    runTests();
-  }, []);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -150,9 +158,9 @@ const ProductionConfigTest: React.FC = () => {
         <h3 className="text-lg font-semibold mb-2 text-gray-700">Environment Detection</h3>
         <div className="bg-gray-100 p-4 rounded">
           <p><strong>Current Hostname:</strong> {window.location.hostname}</p>
-          <p><strong>Force Production:</strong> {new URLSearchParams(window.location.search).get('production') === 'true' ? 'Yes' : 'No'}</p>
-          <p><strong>Environment:</strong> {getServiceUrls().whipUrl.includes('localhost') ? 'Development' : 'Production'}</p>
-          <p><strong>Configuration Source:</strong> {getServiceUrls().whipUrl.includes('localhost') ? 'Localhost URLs' : 'GKE Production URLs'}</p>
+          <p><strong>Force Production:</strong> {forceProduction ? 'Yes' : 'No'}</p>
+          <p><strong>Environment:</strong> {isProduction ? 'Production' : 'Development'}</p>
+          <p><strong>Configuration Source:</strong> {isProduction ? 'GKE Production URLs' : 'Localhost URLs'}</p>
           <p><strong>Test Production:</strong> <a href="?production=true" className="text-blue-600 hover:underline">Add ?production=true to URL</a></p>
         </div>
       </div>
@@ -160,9 +168,9 @@ const ProductionConfigTest: React.FC = () => {
       <div className="mb-6">
         <h3 className="text-lg font-semibold mb-2 text-gray-700">Service URLs</h3>
         <div className="bg-gray-100 p-4 rounded space-y-2">
-          <p><strong>WHIP URL:</strong> {PRODUCTION_CONFIG.WHIP_URL}</p>
-          <p><strong>Orchestrator HTTP:</strong> {PRODUCTION_CONFIG.ORCHESTRATOR_HTTP_URL}</p>
-          <p><strong>Orchestrator WebSocket:</strong> {PRODUCTION_CONFIG.ORCHESTRATOR_WS_URL}</p>
+          <p><strong>WHIP URL:</strong> {serviceUrls.whipUrl}</p>
+          <p><strong>Orchestrator HTTP:</strong> {serviceUrls.orchestratorHttpUrl}</p>
+          <p><strong>Orchestrator WebSocket:</strong> {serviceUrls.orchestratorWsUrl}</p>
         </div>
       </div>
 

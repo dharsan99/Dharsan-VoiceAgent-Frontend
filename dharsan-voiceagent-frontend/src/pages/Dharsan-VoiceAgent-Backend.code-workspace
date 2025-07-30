@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "../../../../Dharsan-VoiceAgent-Backend"
+		},
+		{
+			"path": "../../.."
+		}
+	],
+	"settings": {
+		"workbench.editor.wrapTabs": true,
+		"workbench.editor.untitled.labelFormat": "content",
+		"window.density.editorTabHeight": "compact",
+		"workbench.editor.tabSizing": "shrink",
+		"workbench.editor.scrollToSwitchTabs": true
+	}
+}

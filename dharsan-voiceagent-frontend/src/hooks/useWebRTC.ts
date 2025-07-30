@@ -1,5 +1,6 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { useVoiceAgentStore } from '../stores/voiceAgentStore';
+import { getServiceUrls } from '../config/production';
 
 interface WebRTCConfig {
   whipUrl: string;
@@ -8,7 +9,7 @@ interface WebRTCConfig {
 }
 
 const DEFAULT_CONFIG: WebRTCConfig = {
-  whipUrl: 'http://localhost:8080/whip',
+  whipUrl: getServiceUrls().whipUrl,
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },

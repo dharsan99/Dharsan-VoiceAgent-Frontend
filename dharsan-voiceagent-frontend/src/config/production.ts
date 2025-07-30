@@ -1,18 +1,18 @@
 // Production Configuration for GKE Phase 5 Deployment
 export const PRODUCTION_CONFIG = {
-  // GKE Phase 5 Production URLs
-  WHIP_URL: 'https://35.244.8.62:8001/whip', // Media Server LoadBalancer IP
-  ORCHESTRATOR_WS_URL: 'wss://35.244.33.111:443/ws', // Orchestrator WebSocket (HTTPS)
-  ORCHESTRATOR_HTTP_URL: 'https://35.244.33.111:443', // Orchestrator HTTP API (HTTPS)
-  ORCHESTRATOR_GRPC_URL: 'wss://35.244.33.111:443/grpc', // Orchestrator gRPC WebSocket (HTTPS)
+  // GKE Phase 5 Production URLs - Using LoadBalancer IPs (HTTP/WS for now)
+  WHIP_URL: import.meta.env.VITE_WHIP_URL || 'http://35.244.8.62:8001/whip', // Media Server LoadBalancer IP
+  ORCHESTRATOR_WS_URL: import.meta.env.VITE_WEBSOCKET_URL || 'ws://34.47.230.178:8004/ws', // Orchestrator WebSocket
+  ORCHESTRATOR_HTTP_URL: import.meta.env.VITE_BACKEND_URL || 'http://34.47.230.178:8004', // Orchestrator HTTP API
+  ORCHESTRATOR_GRPC_URL: import.meta.env.VITE_WEBSOCKET_URL?.replace('/ws', '/grpc') || 'ws://34.47.230.178:8004/grpc', // Orchestrator gRPC WebSocket
   
   // Service URLs (internal cluster IPs - for reference)
-  STT_SERVICE_URL: 'http://34.118.229.142:8000', // STT Service
-  TTS_SERVICE_URL: 'http://34.118.229.5:8000', // TTS Service
-  LLM_SERVICE_URL: 'http://34.118.227.19:11434', // LLM Service
+  STT_SERVICE_URL: import.meta.env.VITE_STT_SERVICE_URL || 'http://34.118.229.142:8000', // STT Service
+  TTS_SERVICE_URL: import.meta.env.VITE_TTS_SERVICE_URL || 'http://34.118.234.172:5000', // TTS Service (Port 5000, not 8000)
+  LLM_SERVICE_URL: import.meta.env.VITE_LLM_SERVICE_URL || 'http://34.118.227.19:11434', // LLM Service
   
   // Environment
-  ENVIRONMENT: 'production',
+  ENVIRONMENT: import.meta.env.VITE_ENVIRONMENT || 'production',
   VERSION: '5.0.0',
   
   // Connection settings
@@ -97,13 +97,13 @@ export const getServiceUrls = () => {
       iceServers: PRODUCTION_CONFIG.ICE_SERVERS
     };
   } else {
-    // Development URLs
+    // Development URLs - Using environment variables
     console.log('🌐 [CONFIG] Using development URLs (localhost detected)');
     return {
-      whipUrl: 'http://localhost:8080/whip',
-      orchestratorWsUrl: 'ws://localhost:8001/ws',
-      orchestratorHttpUrl: 'http://localhost:8001',
-      orchestratorGrpcUrl: 'ws://localhost:8001/grpc',
+      whipUrl: import.meta.env.VITE_WHIP_URL || 'http://localhost:8001/whip',
+      orchestratorWsUrl: import.meta.env.VITE_WEBSOCKET_URL || 'ws://localhost:8004/ws',
+      orchestratorHttpUrl: import.meta.env.VITE_BACKEND_URL || 'http://localhost:8004',
+      orchestratorGrpcUrl: import.meta.env.VITE_WEBSOCKET_URL?.replace('/ws', '/grpc') || 'ws://localhost:8004/grpc',
       iceServers: PRODUCTION_CONFIG.ICE_SERVERS
     };
   }

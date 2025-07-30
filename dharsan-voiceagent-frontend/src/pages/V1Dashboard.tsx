@@ -4,6 +4,7 @@ import { navigateToHome } from '../utils/navigation';
 import { LiveTranscript } from '../components/LiveTranscript';
 import { StorageManager } from '../components/StorageManager';
 import { CloudStorageManager } from '../components/CloudStorageManager';
+import { getServiceUrls } from '../config/production';
 
 // Icons component
 interface IconProps {
@@ -100,11 +101,8 @@ const V1Dashboard: React.FC = () => {
       console.log('V1 Dashboard initializing...');
       try {
         console.log('V1 Dashboard mounted successfully');
-        console.log('Environment variables:', {
-          VITE_WEBSOCKET_URL: import.meta.env.VITE_WEBSOCKET_URL,
-          VITE_WEBSOCKET_URL_V1: import.meta.env.VITE_WEBSOCKET_URL_V1,
-          NODE_ENV: process.env.NODE_ENV
-        });
+        const { orchestratorWsUrl } = getServiceUrls();
+        console.log('Backend URL:', orchestratorWsUrl);
         setIsInitialized(true);
       } catch (error) {
         console.error('V1 Dashboard initialization error:', error);
@@ -391,7 +389,7 @@ const V1Dashboard: React.FC = () => {
                   <span className="font-medium">Backend:</span>
                   <br />
                   <span className="font-mono text-xs break-all">
-                    {import.meta.env.VITE_WEBSOCKET_URL_V1 || 'wss://dharsan99--voice-ai-backend-v2-run-app.modal.run/ws/v2'}
+                    {getServiceUrls().orchestratorWsUrl}
                   </span>
                 </div>
               </div>

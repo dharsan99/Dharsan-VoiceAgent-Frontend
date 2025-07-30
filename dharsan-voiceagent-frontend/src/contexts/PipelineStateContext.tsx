@@ -13,6 +13,7 @@ import type {
   ErrorMessage,
   InfoMessage
 } from '../types/pipeline';
+import { CONFIG } from '../config';
 
 // Initial state
 const initialState: PipelineContextState = {
@@ -130,9 +131,8 @@ export const PipelineStateProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     const connectWebSocket = () => {
       try {
-        // Use the orchestrator WebSocket endpoint
-        const wsUrl = 'ws://localhost:8001/ws'; // For development
-        // const wsUrl = 'wss://your-production-domain.com/ws'; // For production
+        // Use the orchestrator WebSocket endpoint from configuration
+        const wsUrl = CONFIG.ORCHESTRATOR.WS_URL;
         
         const websocket = new WebSocket(wsUrl);
         

@@ -13,6 +13,7 @@ import {
   NetworkStatsStorage, 
   ErrorStatsStorage
 } from '../utils/storage';
+import { getServiceUrls } from '../config/production';
 
 type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error' | 'recovering';
 type ListeningState = 'idle' | 'listening' | 'processing' | 'thinking' | 'speaking' | 'error';
@@ -115,7 +116,8 @@ const sendNetworkMetrics = (socket: WebSocket, metrics: NetworkMetrics) => {
 
 const fetchSessionMetrics = async (sessionId: string): Promise<SessionMetrics | null> => {
   try {
-    const baseUrl = import.meta.env.VITE_WEBSOCKET_URL_V1?.replace('/ws', '') || 'https://dharsan99--voice-ai-backend-with-storage-voice-agent-app.modal.run';
+    const { orchestratorHttpUrl } = getServiceUrls();
+    const baseUrl = orchestratorHttpUrl;
     const response = await fetch(`${baseUrl}/metrics/session/${sessionId}/realtime`);
     if (response.ok) {
       return await response.json();
@@ -736,7 +738,8 @@ export const useVoiceAgent = (version: 'v1' | 'v2' | 'webrtc' = 'v1') => {
         console.log('Audio context state:', audioContextRef.current.state);
         console.log('Audio context sample rate:', audioContextRef.current.sampleRate);
 
-      const websocketUrl = import.meta.env.VITE_WEBSOCKET_URL_V1 || 'wss://dharsan99--voice-ai-backend-with-storage-voice-agent-app.modal.run/ws';
+      const { orchestratorWsUrl } = getServiceUrls();
+      const websocketUrl = orchestratorWsUrl;
       const socket = new WebSocket(websocketUrl);
       console.log('Connecting to WebSocket URL:', websocketUrl);
       socketRef.current = socket;

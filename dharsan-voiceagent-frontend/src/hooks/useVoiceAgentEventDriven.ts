@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { getServiceUrls } from '../config/production';
 
 interface VoiceAgentEventDrivenState {
   connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
@@ -45,8 +46,11 @@ export const useVoiceAgentEventDriven = (): [VoiceAgentEventDrivenState, VoiceAg
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const audioProcessorRef = useRef<ScriptProcessorNode | null>(null);
+  const audioChunksRef = useRef<Uint8Array[]>([]);
   const audioQueueRef = useRef<ArrayBuffer[]>([]);
   const isPlayingRef = useRef(false);
+  const isListeningRef = useRef(false);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -70,8 +74,8 @@ export const useVoiceAgentEventDriven = (): [VoiceAgentEventDrivenState, VoiceAg
       setState(prev => ({ ...prev, sessionId }));
 
       // Connect to WebSocket
-      const wsUrl = 'wss://35.244.33.111:443/ws';
-      const ws = new WebSocket(wsUrl);
+      const { orchestratorWsUrl } = getServiceUrls();
+      const ws = new WebSocket(orchestratorWsUrl);
       websocketRef.current = ws;
 
       ws.onopen = () => {
@@ -178,21 +182,74 @@ export const useVoiceAgentEventDriven = (): [VoiceAgentEventDrivenState, VoiceAg
           
         case 'final_transcript':
           console.log('✅ Final transcript:', data.text);
+          
+          // Check if transcript is empty or just whitespace
+          if (!data.text || !data.text.trim()) {
+            console.log("🛑 Empty transcript received, requesting TTS for 'speak louder' message");
+            
+            if (websocketRef.current?.readyState === WebSocket.OPEN && state.sessionId) {
+              websocketRef.current.send(JSON.stringify({
+                event: 'tts_request',
+                text: "I couldn't hear you, could you speak up louder please?",
+                session_id: state.sessionId,
+                voice: 'en_US-lessac-high',
+                speed: 1.0,
+                format: 'wav'
+              }));
+              
+              // Add system message to conversation history
+              setState(prev => ({
+                ...prev,
+                transcript: data.text || '',
+                interimTranscript: '',
+                agentStatus: 'speaking',
+                conversationHistory: [...prev.conversationHistory, {
+                  id: `system_${Date.now()}`,
+                  type: 'system',
+                  text: "I couldn't hear you, could you speak up louder please?",
+                  timestamp: new Date()
+                }]
+              }));
+              
+              console.log("📤 Sent TTS request for 'speak louder' message");
+            }
+          } else {
+            // Valid transcript received, trigger LLM processing
+            setState(prev => ({ 
+              ...prev, 
+              transcript: data.text || '',
+              interimTranscript: '',
+              agentStatus: 'thinking',
+              conversationHistory: [...prev.conversationHistory, {
+                id: `user_${Date.now()}`,
+                type: 'user',
+                text: data.text || '',
+                timestamp: new Date()
+              }]
+            }));
+            
+            // Trigger LLM processing
+            if (websocketRef.current?.readyState === WebSocket.OPEN && state.sessionId) {
+              websocketRef.current.send(JSON.stringify({
+                event: 'trigger_llm',
+                final_transcript: data.text,
+                session_id: state.sessionId
+              }));
+              console.log("🤖 Triggering LLM with transcript:", data.text);
+            }
+          }
+          break;
+          
+        case 'processing_start':
+          console.log('🔄 Processing started');
           setState(prev => ({ 
             ...prev, 
-            transcript: data.text || '',
-            interimTranscript: '',
-            agentStatus: 'thinking',
-            conversationHistory: [...prev.conversationHistory, {
-              id: `user_${Date.now()}`,
-              type: 'user',
-              text: data.text || '',
-              timestamp: new Date()
-            }]
+            agentStatus: 'thinking'
           }));
           break;
           
         case 'llm_response_text':
+        case 'ai_response':
           console.log('🤖 LLM response:', data.text);
           setState(prev => ({ 
             ...prev, 
@@ -252,6 +309,17 @@ export const useVoiceAgentEventDriven = (): [VoiceAgentEventDrivenState, VoiceAg
           }
           break;
           
+        case 'tts_audio':
+          if (data.audio_data) {
+            console.log('🎵 Received TTS audio');
+            // Decode base64 audio and add to queue
+            const audioData = Uint8Array.from(atob(data.audio_data), c => c.charCodeAt(0));
+            console.log('🎵 Decoded TTS audio data size:', audioData.byteLength, 'bytes');
+            audioQueueRef.current.push(audioData);
+            playNextAudioChunk();
+          }
+          break;
+          
         case 'error':
           console.error('❌ Server error:', data.text);
           setState(prev => ({ 
@@ -259,6 +327,10 @@ export const useVoiceAgentEventDriven = (): [VoiceAgentEventDrivenState, VoiceAg
             error: data.text || 'An error occurred',
             agentStatus: 'idle'
           }));
+          break;
+          
+        case 'pong':
+          console.log('📡 Received pong response');
           break;
           
         default:
@@ -307,6 +379,10 @@ export const useVoiceAgentEventDriven = (): [VoiceAgentEventDrivenState, VoiceAg
           if (websocketRef.current?.readyState === WebSocket.OPEN) {
             websocketRef.current.send(JSON.stringify({ type: 'pong' }));
           }
+          break;
+          
+        case 'pong':
+          console.log('📡 Received pong response');
           break;
           
         default:
@@ -470,6 +546,20 @@ export const useVoiceAgentEventDriven = (): [VoiceAgentEventDrivenState, VoiceAg
 
   // Media stream management
   const stopMediaStream = useCallback(() => {
+    // Stop listening
+    isListeningRef.current = false;
+    
+    // Clean up audio processing
+    if (audioProcessorRef.current) {
+      audioProcessorRef.current.disconnect();
+      audioProcessorRef.current = null;
+    }
+    
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach(track => {
         track.stop();
@@ -482,6 +572,9 @@ export const useVoiceAgentEventDriven = (): [VoiceAgentEventDrivenState, VoiceAg
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current = null;
     }
+    
+    // Clear audio chunks
+    audioChunksRef.current = [];
   }, []);
 
   // Start listening
@@ -503,6 +596,15 @@ export const useVoiceAgentEventDriven = (): [VoiceAgentEventDrivenState, VoiceAg
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       mediaStreamRef.current = stream;
       
+      // Debug: Check if we got audio tracks
+      const audioTracks = stream.getAudioTracks();
+      console.log(`🎤 Microphone access successful. Audio tracks: ${audioTracks.length}`);
+      if (audioTracks.length > 0) {
+        const track = audioTracks[0];
+        console.log(`🎤 Audio track settings:`, track.getSettings());
+        console.log(`🎤 Audio track enabled: ${track.enabled}, muted: ${track.muted}`);
+      }
+      
       setState(prev => ({ 
         ...prev, 
         agentStatus: 'listening',
@@ -511,44 +613,76 @@ export const useVoiceAgentEventDriven = (): [VoiceAgentEventDrivenState, VoiceAg
         aiResponse: ''
       }));
       
-      // Send start_listening event
-      if (websocketRef.current?.readyState === WebSocket.OPEN && state.sessionId) {
-        websocketRef.current.send(JSON.stringify({
-          event: 'start_listening',
-          session_id: state.sessionId
-        }));
-        console.log('🎤 Sent start_listening event');
-      }
-
-      // Set up MediaRecorder for audio capture
-      mediaRecorderRef.current = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
+      // Set listening ref
+      isListeningRef.current = true;
       
-      mediaRecorderRef.current.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          event.data.arrayBuffer().then(buffer => {
-            console.log(`🎵 Captured audio chunk: ${buffer.byteLength} bytes`);
-            
-            // Convert audio data to base64 and send to orchestrator
-            const audioData = new Uint8Array(buffer);
-            const base64Audio = btoa(String.fromCharCode(...audioData));
-            
-            if (websocketRef.current?.readyState === WebSocket.OPEN && state.sessionId) {
-              websocketRef.current.send(JSON.stringify({
-                event: 'audio_data',
-                audio_data: base64Audio,
-                session_id: state.sessionId,
-                is_final: false
-              }));
-              console.log(`📤 Sent audio chunk: ${buffer.byteLength} bytes as base64`);
-            }
-          });
+      // Send start_listening event with retry logic
+      const sendStartListeningWithRetry = (retryCount = 0) => {
+        if (websocketRef.current?.readyState === WebSocket.OPEN && state.sessionId) {
+          websocketRef.current.send(JSON.stringify({
+            event: 'start_listening',
+            session_id: state.sessionId
+          }));
+          console.log('🎤 Sent start_listening event');
+        } else if (retryCount < 3) {
+          console.log(`⚠️ WebSocket not ready, retrying start_listening in 1s (attempt ${retryCount + 1}/3)`);
+          setTimeout(() => sendStartListeningWithRetry(retryCount + 1), 1000);
+        } else {
+          console.error('❌ Failed to send start_listening after 3 retries');
+          setState(prev => ({ 
+            ...prev, 
+            error: 'Failed to send start_listening event',
+            agentStatus: 'idle'
+          }));
         }
       };
       
-      mediaRecorderRef.current.start(250); // Capture in 250ms chunks
-      console.log("🎤 Started listening...");
+      sendStartListeningWithRetry();
+
+      // Create AudioContext for raw PCM capture
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({
+        sampleRate: 16000
+      });
+      
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      const bufferSize = 4096;
+      audioProcessorRef.current = audioContextRef.current.createScriptProcessor(bufferSize, 1, 1);
+      
+      // Clear previous audio chunks
+      audioChunksRef.current = [];
+      
+      audioProcessorRef.current.onaudioprocess = (event) => {
+        if (isListeningRef.current) {
+          const inputBuffer = event.inputBuffer;
+          const inputData = inputBuffer.getChannelData(0);
+          
+          // Convert float32 to int16
+          const int16Data = new Int16Array(inputData.length);
+          for (let i = 0; i < inputData.length; i++) {
+            int16Data[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32768));
+          }
+          
+          // Convert to bytes and store
+          const bytes = new Uint8Array(int16Data.buffer);
+          
+          // Safety check: limit the number of chunks to prevent memory issues
+          const maxChunks = 100; // Limit to 100 chunks (about 4 seconds at 16kHz)
+          if (audioChunksRef.current.length >= maxChunks) {
+            // Remove the oldest chunk to make room for the new one
+            audioChunksRef.current.shift();
+            console.log(`⚠️ Audio buffer full, removing oldest chunk`);
+          }
+          
+          audioChunksRef.current.push(bytes);
+          
+          console.log(`🎵 Captured ${bytes.length} bytes of PCM audio (${audioChunksRef.current.length} chunks)`);
+        }
+      };
+      
+      source.connect(audioProcessorRef.current);
+      audioProcessorRef.current.connect(audioContextRef.current.destination);
+      
+      console.log("🎤 Started capturing PCM audio...");
 
     } catch (error) {
       console.error("❌ Error accessing microphone:", error);
@@ -560,78 +694,99 @@ export const useVoiceAgentEventDriven = (): [VoiceAgentEventDrivenState, VoiceAg
     }
   }, [state.agentStatus, state.sessionId]);
 
-  // Stop listening and trigger LLM
+  // Stop listening and send audio data
   const stopListening = useCallback(() => {
     if (state.agentStatus !== 'listening') return;
     
-    // Send final audio chunk signal
-    if (websocketRef.current?.readyState === WebSocket.OPEN && state.sessionId) {
-      websocketRef.current.send(JSON.stringify({
-        event: 'audio_data',
-        audio_data: '', // Empty audio data to signal end of stream
-        session_id: state.sessionId,
-        is_final: true
-      }));
-      console.log('📤 Sent final audio chunk signal');
+    // Stop listening
+    isListeningRef.current = false;
+    
+    // Send collected PCM audio data
+    if (audioChunksRef.current.length > 0) {
+      try {
+        // Combine all PCM chunks
+        const totalSize = audioChunksRef.current.reduce((sum, chunk) => sum + chunk.length, 0);
+        
+        // Safety check: limit audio size to prevent stack overflow
+        const maxAudioSize = 1024 * 1024; // 1MB limit
+        let combinedAudio: Uint8Array;
+        
+        if (totalSize > maxAudioSize) {
+          console.warn(`⚠️ Audio data too large (${totalSize} bytes), truncating to ${maxAudioSize} bytes`);
+          // Keep only the last portion of audio data
+          const keepSize = maxAudioSize;
+          combinedAudio = new Uint8Array(keepSize);
+          let offset = 0;
+          let remainingSize = keepSize;
+          
+          // Start from the end and work backwards
+          for (let i = audioChunksRef.current.length - 1; i >= 0 && remainingSize > 0; i--) {
+            const chunk = audioChunksRef.current[i];
+            const chunkSize = Math.min(chunk.length, remainingSize);
+            const startIndex = chunk.length - chunkSize;
+            combinedAudio.set(chunk.slice(startIndex), offset);
+            offset += chunkSize;
+            remainingSize -= chunkSize;
+          }
+        } else {
+          combinedAudio = new Uint8Array(totalSize);
+          let offset = 0;
+          
+          for (const chunk of audioChunksRef.current) {
+            combinedAudio.set(chunk, offset);
+            offset += chunk.length;
+          }
+        }
+        
+        // Convert to base64 and send (using a more efficient method)
+        let binaryString = '';
+        for (let i = 0; i < combinedAudio.length; i++) {
+          binaryString += String.fromCharCode(combinedAudio[i]);
+        }
+        const base64Audio = btoa(binaryString);
+        
+        // Send audio_data with retry logic
+        const sendAudioDataWithRetry = (retryCount = 0) => {
+          if (websocketRef.current?.readyState === WebSocket.OPEN && state.sessionId) {
+            websocketRef.current.send(JSON.stringify({
+              event: 'audio_data',
+              audio_data: base64Audio,
+              session_id: state.sessionId,
+              is_final: true
+            }));
+            console.log(`📤 Sent ${combinedAudio.length} bytes of PCM audio data`);
+          } else if (retryCount < 3) {
+            console.log(`⚠️ WebSocket not ready, retrying audio_data in 1s (attempt ${retryCount + 1}/3)`);
+            setTimeout(() => sendAudioDataWithRetry(retryCount + 1), 1000);
+          } else {
+            console.error('❌ Failed to send audio_data after 3 retries');
+            setState(prev => ({ 
+              ...prev, 
+              error: 'Failed to send audio data',
+              agentStatus: 'idle'
+            }));
+          }
+        };
+        
+        sendAudioDataWithRetry();
+        
+        // Clear audio chunks
+        audioChunksRef.current = [];
+      } catch (error) {
+        console.error('❌ Error processing audio data:', error);
+        setState(prev => ({ 
+          ...prev, 
+          error: 'Failed to process audio data',
+          agentStatus: 'idle'
+        }));
+      }
     }
     
     stopMediaStream();
     setState(prev => ({ ...prev, agentStatus: 'thinking' }));
     
-    // Send trigger_llm event with final transcript
-    let finalTranscript = state.interimTranscript || state.transcript;
-    
-    if (!finalTranscript || !finalTranscript.trim()) {
-      // If no transcript available, ask user to speak louder via TTS
-      console.log("🛑 No transcript available, requesting TTS for 'speak louder' message");
-      
-      if (websocketRef.current?.readyState === WebSocket.OPEN && state.sessionId) {
-        websocketRef.current.send(JSON.stringify({
-          event: 'tts_request',
-          text: "I couldn't hear you, could you speak up louder please?",
-          session_id: state.sessionId,
-          voice: 'en_US-lessac-high',
-          speed: 1.0,
-          format: 'wav'
-        }));
-        
-        // Add system message to conversation history
-        setState(prev => ({
-          ...prev,
-          conversationHistory: [...prev.conversationHistory, {
-            id: `system_${Date.now()}`,
-            type: 'system',
-            text: "I couldn't hear you, could you speak up louder please?",
-            timestamp: new Date()
-          }],
-          agentStatus: 'speaking'
-        }));
-        
-        console.log("📤 Sent TTS request for 'speak louder' message");
-        return; // Don't proceed with LLM processing
-      }
-    }
-    
-    if (websocketRef.current?.readyState === WebSocket.OPEN && state.sessionId) {
-      // Add user message to conversation history
-      setState(prev => ({
-        ...prev,
-        conversationHistory: [...prev.conversationHistory, {
-          id: `user_${Date.now()}`,
-          type: 'user',
-          text: finalTranscript,
-          timestamp: new Date()
-        }]
-      }));
-      
-      websocketRef.current.send(JSON.stringify({
-        event: 'trigger_llm',
-        final_transcript: finalTranscript,
-        session_id: state.sessionId
-      }));
-      console.log("🛑 Stopped listening. Triggering LLM with transcript:", finalTranscript);
-    }
-  }, [state.agentStatus, state.interimTranscript, state.transcript, state.sessionId, stopMediaStream]);
+    console.log("🛑 Stopped listening. Waiting for STT processing...");
+  }, [state.agentStatus, state.sessionId, stopMediaStream]);
 
   // Get answer (alias for stopListening)
   const getAnswer = useCallback(() => {

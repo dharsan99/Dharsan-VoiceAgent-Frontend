@@ -1,127 +1,363 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { navigateToHome } from '../utils/navigation';
-import ProductionConfigTest from '../components/ProductionConfigTest';
-import VoiceAgentEventDriven from '../components/VoiceAgentEventDriven';
-import VoiceAgentWHIP from '../components/VoiceAgentWHIP';
-
-// Icons component
-interface IconProps {
-  className?: string;
-}
-
-const Icons = {
-  Home: ({ className = "w-5 h-5" }: IconProps) => (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-    </svg>
-  ),
-  Network: ({ className = "w-5 h-5" }: IconProps) => (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
-    </svg>
-  ),
-  Settings: ({ className = "w-5 h-5" }: IconProps) => (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-    </svg>
-  ),
-  WHIP: ({ className = "w-5 h-5" }: IconProps) => (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-    </svg>
-  )
-};
+import { scrollbarStyles } from '../utils/uiUtils';
+import { useConnectionManager } from '../hooks/useConnectionManager';
+import TestStepsModal from '../components/TestStepsModal';
+import HealthCheckModal from '../components/HealthCheckModal';
+import DashboardHeader from '../components/dashboard/DashboardHeader';
+import ControlsPanel from '../components/dashboard/ControlsPanel';
+import ConversationLogs from '../components/dashboard/ConversationLogs';
+import PhaseTimings from '../components/dashboard/PhaseTimings';
+import { Icons } from '../components/ui/Icons';
+import { getStatusColor, getButtonColor } from '../utils/uiUtils';
 
 const V2Phase5: React.FC = () => {
-  const [showConfigTest, setShowConfigTest] = useState(false);
-  const [useEventDriven, setUseEventDriven] = useState(false); // Default to WHIP
+  const [showTestSteps, setShowTestSteps] = useState(false);
+  const [showHealthCheck, setShowHealthCheck] = useState(false);
+  const [useEventDriven, setUseEventDriven] = useState(true);
+  const [isProduction, setIsProduction] = useState(false);
+  const [stepStatus, setStepStatus] = useState<'idle' | 'listening' | 'processing' | 'speaking'>('idle');
+  const [logs, setLogs] = useState<string[]>([]);
+
+  // Initialize production state from URL parameter
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const productionParam = urlParams.get('production');
+    if (productionParam === 'true') {
+      setIsProduction(true);
+    }
+  }, []);
+
+  // Use the connection manager hook
+  const {
+    connectionStatus,
+    pipelineStatus,
+    phaseTimings,
+    isListening,
+    isProcessing,
+    hasAudioData,
+    audioLevel,
+    establishConnection,
+    updateMetrics,
+    toggleProduction,
+    startListening,
+    stopListening,
+    triggerLLM,
+    getEnvironmentUrl
+  } = useConnectionManager(isProduction, useEventDriven);
+
+  // Initial conversation logs
+  useEffect(() => {
+    // Add initial logs through the connection manager
+    // This will be handled by the hook
+  }, [useEventDriven, isProduction]);
+
+  const getStatusDot = (status: boolean) => (
+    <div className={`w-2 h-2 rounded-full ${status ? 'bg-green-500' : 'bg-red-500'}`}></div>
+  );
+
+  const handleToggleProduction = () => {
+    setIsProduction(!isProduction);
+    toggleProduction();
+  };
+
+  const handleToggleMode = (newUseEventDriven: boolean) => {
+    setUseEventDriven(newUseEventDriven);
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={navigateToHome}
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                title="Go Home"
-              >
-                <Icons.Home className="w-5 h-5 text-gray-600" />
-              </button>
-              <div>
-                <h1 className="text-xl font-semibold text-gray-900">
-                  Voice Agent V2 Phase 5
-                </h1>
-                <p className="text-sm text-gray-500">
-                  WHIP WebRTC with media server integration
-                </p>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+      {/* Inject custom scrollbar styles */}
+      <style>{scrollbarStyles}</style>
+
+      {/* Dashboard Header */}
+      <DashboardHeader
+        isProduction={isProduction}
+        useEventDriven={useEventDriven}
+        pipelineStatus={pipelineStatus}
+        stepStatus={stepStatus}
+        onToggleProduction={handleToggleProduction}
+        onToggleMode={handleToggleMode}
+        getEnvironmentUrl={getEnvironmentUrl}
+      />
+
+      {/* Main Content - Simplified Layout */}
+      <main className="max-w-7xl mx-auto px-6 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Left Column - Controls */}
+          <div className="space-y-6">
+            <ControlsPanel
+              connectionStatus={connectionStatus}
+              useEventDriven={useEventDriven}
+              audioLevel={audioLevel}
+              onConnect={establishConnection}
+              onStartListening={startListening}
+              onStopListening={stopListening}
+              onTriggerLLM={triggerLLM}
+              isListening={isListening}
+              isProcessing={isProcessing}
+              hasAudioData={hasAudioData}
+            />
+
+            {/* Pipeline Card */}
+            <div className="bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">
+              <div className="flex items-center space-x-2 mb-4">
+                <Icons.Play className="w-5 h-5 text-cyan-400" />
+                <h3 className="text-lg font-semibold text-white">Pipeline</h3>
               </div>
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-2">
+              <div className="space-y-3">
                 {useEventDriven ? (
+                  // Event-Driven Pipeline Controls
                   <>
-                    <Icons.Network className="w-5 h-5 text-green-600" />
-                    <span className="text-sm font-medium text-gray-700">Event-Driven</span>
+                    <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('primary')}`}>
+                      <Icons.Play className="w-5 h-5" />
+                      <span>Start Session</span>
+                    </button>
+                    <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('secondary', true)}`}>
+                      <Icons.Stop className="w-5 h-5" />
+                      <span>Stop Session</span>
+                    </button>
+                    <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('purple')}`}>
+                      <Icons.FileText className="w-5 h-5" />
+                      <span>Process Transcript</span>
+                    </button>
                   </>
                 ) : (
+                  // WHIP WebRTC Pipeline Controls
                   <>
-                    <Icons.WHIP className="w-5 h-5 text-blue-600" />
-                    <span className="text-sm font-medium text-gray-700">WHIP WebRTC</span>
-                    <span className="px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">Recommended</span>
+                    <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('primary')}`}>
+                      <Icons.Play className="w-5 h-5" />
+                      <span>Connect WHIP</span>
+                    </button>
+                    <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('secondary', true)}`}>
+                      <Icons.Stop className="w-5 h-5" />
+                      <span>Disconnect</span>
+                    </button>
+                    <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('purple')}`}>
+                      <Icons.FileText className="w-5 h-5" />
+                      <span>AI Processing</span>
+                    </button>
                   </>
                 )}
               </div>
-              
-              <button
-                onClick={() => setUseEventDriven(!useEventDriven)}
-                className="px-3 py-1 rounded-lg text-sm font-medium transition-colors bg-gray-100 hover:bg-gray-200 text-gray-700"
-                title="Switch Implementation"
-              >
-                {useEventDriven ? 'Switch to WHIP WebRTC' : 'Switch to Event-Driven'}
-              </button>
-              
-              <button
-                onClick={() => setShowConfigTest(!showConfigTest)}
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                title="Test Configuration"
-              >
-                <Icons.Settings className="w-5 h-5 text-gray-600" />
-              </button>
+              <div className="mt-4">
+                <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('warning')}`}>
+                  <Icons.RefreshCw className="w-5 h-5" />
+                  <span>Reset Pipeline</span>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {useEventDriven ? (
-          <VoiceAgentEventDriven />
-        ) : (
-          <VoiceAgentWHIP />
-        )}
-      </div>
+          {/* Middle Column - Main Features */}
+          <div className="space-y-6">
+            {/* Voice Conversation Card with Phase Timings */}
+            <div className="bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-2">
+                  <Icons.Mic className="w-5 h-5 text-cyan-400" />
+                  <h3 className="text-lg font-semibold text-white">Voice Conversation</h3>
+                </div>
+              </div>
+              
+              {/* Phase Timings Component */}
+              <PhaseTimings phaseTimings={phaseTimings} />
 
-      {/* Configuration Test Modal */}
-      {showConfigTest && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Production Configuration Test</h2>
-              <button
-                onClick={() => setShowConfigTest(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                ✕
-              </button>
+              {/* Backend Conversation Logs */}
+              <ConversationLogs 
+                isProduction={isProduction}
+                pipelineStatus={pipelineStatus}
+              />
             </div>
-            <ProductionConfigTest />
+
+            {/* System Status Card */}
+            <div className="bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">
+              <div className="flex items-center space-x-2 mb-4">
+                <Icons.BarChart3 className="w-5 h-5 text-cyan-400" />
+                <h3 className="text-lg font-semibold text-white">System Status</h3>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-400 mb-2">Connections</h4>
+                  <div className="space-y-2">
+                    {useEventDriven ? (
+                      // Event-Driven Connection Status
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-300">WebSocket</span>
+                          {getStatusDot(connectionStatus === 'connected')}
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-300">Session</span>
+                          {getStatusDot(pipelineStatus === 'active')}
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-300">Audio Stream</span>
+                          {getStatusDot(stepStatus === 'listening')}
+                        </div>
+                      </>
+                    ) : (
+                      // WHIP WebRTC Connection Status
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-300">WHIP</span>
+                          {getStatusDot(connectionStatus === 'connected')}
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-300">WebRTC</span>
+                          {getStatusDot(pipelineStatus === 'active')}
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-300">Audio Processing</span>
+                          {getStatusDot(stepStatus === 'listening')}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-400 mb-2">Services</h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-300">STT</span>
+                      {getStatusDot(stepStatus === 'processing')}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-300">LLM</span>
+                      {getStatusDot(stepStatus === 'processing')}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-300">TTS</span>
+                      {getStatusDot(stepStatus === 'speaking')}
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-400 mb-2">Pipeline</h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-300">Status</span>
+                      {getStatusDot(pipelineStatus === 'active')}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-300">Progress</span>
+                      {getStatusDot(stepStatus !== 'idle')}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-300">Cycles</span>
+                      {getStatusDot(true)}
+                    </div>
+                  </div>
+                  <div className="text-center mt-3">
+                    <span className="text-2xl font-bold text-green-400">0</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column - Debug & Actions */}
+          <div className="space-y-6">
+            
+            {/* Debug Card */}
+            <div className="bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">
+              <div className="flex items-center space-x-2 mb-4">
+                <Icons.Status className="w-5 h-5 text-cyan-400" />
+                <h3 className="text-lg font-semibold text-white">Debug</h3>
+              </div>
+              <div className="space-y-3">
+                <button 
+                  onClick={() => setShowTestSteps(true)}
+                  className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('danger')}`}
+                >
+                  <Icons.Status className="w-5 h-5" />
+                  <span>Test Steps</span>
+                </button>
+                <button 
+                  onClick={() => setShowHealthCheck(true)}
+                  className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('primary')}`}
+                >
+                  <Icons.BarChart3 className="w-5 h-5" />
+                  <span>Health Check</span>
+                </button>
+                <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('secondary')}`}>
+                  <Icons.Activity className="w-5 h-5" />
+                  <span>Audio Stats</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Actions Card */}
+            <div className="bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">
+              <div className="flex items-center space-x-2 mb-4">
+                <Icons.Zap className="w-5 h-5 text-cyan-400" />
+                <h3 className="text-lg font-semibold text-white">Quick Actions</h3>
+              </div>
+              <div className="space-y-3">
+                {useEventDriven ? (
+                  // Event-Driven Quick Actions
+                  <>
+                    <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('secondary', true)}`}>
+                      <Icons.Stop className="w-5 h-5" />
+                      <span>Stop Conversation</span>
+                    </button>
+                    <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('warning')}`}>
+                      <Icons.RefreshCw className="w-5 h-5" />
+                      <span>Pause Conversation</span>
+                    </button>
+                    <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('secondary', true)}`}>
+                      <Icons.Trash2 className="w-5 h-5" />
+                      <span>Clear Session</span>
+                    </button>
+                  </>
+                ) : (
+                  // WHIP WebRTC Quick Actions
+                  <>
+                    <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('secondary', true)}`}>
+                      <Icons.Stop className="w-5 h-5" />
+                      <span>Stop Pipeline</span>
+                    </button>
+                    <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('warning')}`}>
+                      <Icons.RefreshCw className="w-5 h-5" />
+                      <span>Reset Session</span>
+                    </button>
+                    <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('secondary', true)}`}>
+                      <Icons.Trash2 className="w-5 h-5" />
+                      <span>Cleanup Connection</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+
           </div>
         </div>
-      )}
+
+        {/* Global Reset Button */}
+        <div className="mt-8 text-center">
+          <button className={`px-8 py-4 rounded-lg font-bold text-lg flex items-center justify-center space-x-3 mx-auto ${getButtonColor('warning')}`}>
+            <Icons.RefreshCw className="w-6 h-6" />
+            <span>Reset Pipeline</span>
+          </button>
+        </div>
+      </main>
+
+      {/* Test Steps Modal */}
+      <TestStepsModal 
+        isOpen={showTestSteps}
+        onClose={() => setShowTestSteps(false)}
+        mode={useEventDriven ? 'event-driven' : 'whip-webrtc'}
+      />
+
+      {/* Health Check Modal */}
+      <HealthCheckModal 
+        isOpen={showHealthCheck}
+        onClose={() => setShowHealthCheck(false)}
+        mode={useEventDriven ? 'event-driven' : 'whip-webrtc'}
+        isProduction={isProduction}
+      />
     </div>
   );
 };
