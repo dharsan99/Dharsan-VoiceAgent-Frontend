@@ -5,6 +5,7 @@ import V2Dashboard from './pages/V2Dashboard';
 import V3Dashboard from './pages/V3Dashboard';
 import V2Phase5 from './pages/V2Phase5';
 import UnifiedV2Dashboard from './pages/UnifiedV2Dashboard';
+import NotFound from './pages/NotFound';
 
 // Simple routing based on pathname
 const App: React.FC = () => {
@@ -27,6 +28,8 @@ const App: React.FC = () => {
   // Simple routing logic
   const renderContent = () => {
     switch (currentRoute) {
+      case '/':
+        return <LandingPage />;
       case '/v1/dashboard':
         return <V1Dashboard />;
       case '/v2/dashboard':
@@ -37,9 +40,9 @@ const App: React.FC = () => {
         return <V3Dashboard />;
       case '/unified-v2/dashboard':
         return <UnifiedV2Dashboard />;
-      case '/':
       default:
-        return <LandingPage />;
+        // Show 404 page for unknown routes
+        return <NotFound />;
     }
   };
 
