@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useBackendLogs } from '../../hooks/useBackendLogs';
-import type { BackendLog } from '../../hooks/useBackendLogs';
+import type { BackendLogEntry } from '../../hooks/useBackendLogs';
 import { Icons } from '../ui/Icons';
 import Card from '../ui/Card';
 
@@ -20,13 +20,7 @@ const BackendLogs: React.FC<BackendLogsProps> = ({
   const [selectedService, setSelectedService] = useState<string>('all');
   const [logLevel, setLogLevel] = useState<string>('all');
 
-  const { logs, loading, error, lastFetch, fetchLogs, clearLogs, refreshLogs } = useBackendLogs({
-    sessionId,
-    limit: 200,
-    service: selectedService === 'all' ? undefined : selectedService,
-    autoRefresh: true,
-    refreshInterval: 3000,
-  });
+  const { logs, isLoading, error, lastUpdate, fetchLogs, clearLogs } = useBackendLogs();
 
   const getLogLevelColor = (level: string) => {
     switch (level.toLowerCase()) {
@@ -97,12 +91,12 @@ const BackendLogs: React.FC<BackendLogsProps> = ({
             {showBackendLogs ? 'Hide' : 'Show'}
           </button>
           <button
-            onClick={refreshLogs}
-            disabled={loading}
+            onClick={fetchLogs}
+            disabled={isLoading}
             className="text-xs text-gray-500 hover:text-gray-300 transition-colors disabled:opacity-50"
             title="Refresh backend logs"
           >
-            <Icons.RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+            <Icons.RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
           <button
             onClick={clearLogs}
@@ -113,8 +107,8 @@ const BackendLogs: React.FC<BackendLogsProps> = ({
           </button>
         </div>
         <div className="flex items-center gap-2 text-xs text-gray-500">
-          {lastFetch && (
-            <span>Last: {lastFetch.toLocaleTimeString()}</span>
+          {lastUpdate && (
+            <span>Last: {lastUpdate.toLocaleTimeString()}</span>
           )}
           <span>{filteredLogs.length} logs</span>
         </div>
@@ -152,7 +146,7 @@ const BackendLogs: React.FC<BackendLogsProps> = ({
             <div className="text-xs text-red-400 p-2 bg-red-900/20 rounded border border-red-500/30">
               Error: {error}
             </div>
-          ) : loading && logs.length === 0 ? (
+          ) : isLoading && logs.length === 0 ? (
             <div className="text-xs text-gray-500 text-center py-4">
               Loading backend logs...
             </div>

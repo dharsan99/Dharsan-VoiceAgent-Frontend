@@ -237,7 +237,7 @@ const LandingPage: React.FC = () => {
       <footer className="border-t border-gray-800 mt-8">
         <div className="max-w-6xl mx-auto px-6 py-6">
           <div className="text-center text-gray-400 text-sm">
-            <p>&copy; 2024 Dharsan VoiceAgent - Technical Demo for Smallest.ai</p>
+            <p>&copy; 2025 Dharsan VoiceAgent - Technical Demo for Smallest.ai</p>
           </div>
         </div>
       </footer>

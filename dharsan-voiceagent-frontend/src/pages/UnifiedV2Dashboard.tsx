@@ -287,7 +287,7 @@ const UnifiedV2Dashboard: React.FC = () => {
                 <Icons.Home className="w-5 h-5 text-gray-300" />
               </button>
               <button
-                onClick={() => navigateToDashboard()}
+                onClick={() => navigateToDashboard('unified-v2')}
                 className="p-2 rounded-lg bg-gray-700/50 hover:bg-gray-600/50 transition-colors"
                 title="Go to Dashboard"
               >

@@ -18,7 +18,7 @@ const ConversationLogs: React.FC<ConversationLogsProps> = ({
     lastUpdate,
     clearLogs,
     logCount
-  } = useBackendLogs(isProduction);
+  } = useBackendLogs();
 
   return (
     <div className="bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">

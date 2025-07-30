@@ -77,8 +77,7 @@ export const fetchServiceMetrics = async (isProduction: boolean = false): Promis
     // In production, internal services are not directly accessible
     // Their status is reported by the orchestrator health endpoint
     try {
-      const { orchestratorHttpUrl } = getServiceUrls();
-      const orchestratorResponse = await fetchWithRetry(`${orchestratorHttpUrl}/health`, {
+      const orchestratorResponse = await fetchWithRetry(`${CONFIG.ORCHESTRATOR.HTTP_URL}/health`, {
         method: 'GET',
         headers: { 'Accept': 'application/json' }
       });
