@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getServiceUrls } from '../config/production';
+import { mobileAudioFix, isMobileDevice, playMobileAudio, requestMobileMicrophone } from '../utils/mobileAudioFix';
 
 interface VoiceAgentState {
   connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
@@ -96,22 +97,32 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
       // Clear previous audio chunks
       audioChunksRef.current = [];
       
-      // Get microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: { 
-          sampleRate: 16000,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true
-        } 
-      });
+      // Use mobile-optimized microphone access
+      let stream;
+      if (isMobileDevice()) {
+        stream = await requestMobileMicrophone();
+      } else {
+        // Get microphone access
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: { 
+            sampleRate: 16000,
+            channelCount: 1,
+            echoCancellation: true,
+            noiseSuppression: true
+          } 
+        });
+      }
       
       mediaStreamRef.current = stream;
       
-      // Create audio context
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({
-        sampleRate: 16000
-      });
+      // Create audio context with mobile optimization
+      if (isMobileDevice()) {
+        audioContextRef.current = await mobileAudioFix.ensureAudioContext();
+      } else {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({
+          sampleRate: 16000
+        });
+      }
       
       console.log('V2 Loading audio processor...');
       
@@ -132,59 +143,37 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
       const source = audioContextRef.current.createMediaStreamSource(stream);
 
       processor.port.onmessage = (event) => {
-        try {
-          if (event.data.type === 'audioData') {
-            // Collect audio chunks instead of sending immediately
-            const int16Array = new Int16Array(event.data.audioData);
-            audioChunksRef.current.push(int16Array);
-            // Removed console.log to reduce spam - audio chunks are being collected silently
-          } else if (event.data.type === 'audioLevel') {
-            // Handle audio level updates - no console log to reduce spam
-            // Audio level is already displayed in the UI controls
-          } else {
-            console.log('V2 Audio processor message type:', event.data.type);
+        if (event.data.type === 'audioData') {
+          const audioData = new Int16Array(event.data.audioData);
+          audioChunksRef.current.push(audioData);
+          
+          // Send audio data to WebSocket if connected
+          if (websocketRef.current?.readyState === WebSocket.OPEN && sessionIdRef.current) {
+            const audioMessage = {
+              event: 'audio_data',
+              session_id: sessionIdRef.current,
+              audio_data: btoa(String.fromCharCode(...new Uint8Array(audioData.buffer))),
+              timestamp: new Date().toISOString()
+            };
+            websocketRef.current.send(JSON.stringify(audioMessage));
           }
-        } catch (error) {
-          console.error('V2 Error in audio processor message handler:', error);
-          if (error instanceof Error) {
-            console.error('V2 Error details:', error.message, error.stack);
-          }
-          // Don't disconnect WebSocket on audio processing error
         }
       };
 
       source.connect(processor);
       processor.connect(audioContextRef.current.destination);
 
-      setIsRecording(true);
       setState(prev => ({ ...prev, processingStatus: 'listening' }));
-      finalMessageSentRef.current = false; // Reset final message flag
-      console.log('V2 Recording started - collecting audio chunks');
-
-      // Send start_listening event to orchestrator
-      if (websocketRef.current?.readyState === WebSocket.OPEN && sessionIdRef.current) {
-        const startListeningMessage = {
-          event: 'start_listening',
-          session_id: sessionIdRef.current,
-          timestamp: new Date().toISOString()
-        };
-        websocketRef.current.send(JSON.stringify(startListeningMessage));
-        console.log('V2 Sent start_listening event:', startListeningMessage);
-      } else {
-        console.error('V2 Cannot send start_listening - WebSocket not ready or no session ID');
-        console.log('V2 WebSocket state:', websocketRef.current?.readyState);
-        console.log('V2 Session ID:', sessionIdRef.current);
-      }
-
+      setIsRecording(true);
+      console.log('V2 Recording started successfully');
+      
     } catch (error) {
-      console.error('Failed to start recording:', error);
+      console.error('V2 Failed to start recording:', error);
       setState(prev => ({ 
         ...prev, 
-        error: error instanceof Error ? error.message : 'Failed to start recording'
+        error: error instanceof Error ? error.message : 'Failed to start recording',
+        processingStatus: 'error'
       }));
-      
-      // Don't disconnect WebSocket on audio recording failure
-      console.log('V2 Audio recording failed, but keeping WebSocket connection alive');
     }
   }, [isRecording]);
 
@@ -416,7 +405,7 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
   }, []);
 
   // Message handling
-  const handleWebSocketMessage = useCallback((data: any) => {
+  const handleWebSocketMessage = useCallback(async (data: any) => {
     console.log('V2 Received WebSocket message:', data.event || data.type, data);
     switch (data.event || data.type) {
       case 'connection_established':
@@ -443,28 +432,15 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
           detail: { text: data.text, hasAudio: !!data.audio_data } 
         });
         window.dispatchEvent(greetingEvent);
-        // Play the greeting audio
+        // Play the greeting audio using mobile-optimized playback
         if (data.audio_data) {
           try {
-            const audioBytes = atob(data.audio_data);
-            const audioArray = new Uint8Array(audioBytes.length);
-            for (let i = 0; i < audioBytes.length; i++) {
-              audioArray[i] = audioBytes.charCodeAt(i);
+            const success = await playMobileAudio(data.audio_data, 'wav');
+            if (success) {
+              console.log('V2 Greeting audio played successfully');
+            } else {
+              console.warn('V2 Failed to play greeting audio');
             }
-            
-            const audioBlob = new Blob([audioArray], { type: 'audio/wav' });
-            const audioUrl = URL.createObjectURL(audioBlob);
-            const audio = new Audio(audioUrl);
-            
-            audio.onended = () => {
-              URL.revokeObjectURL(audioUrl); // Clean up
-            };
-            
-            audio.play().catch(error => {
-              console.error('V2 Failed to play greeting audio:', error);
-            });
-            
-            console.log('V2 Playing greeting audio');
           } catch (error) {
             console.error('V2 Error processing greeting audio:', error);
           }
@@ -510,31 +486,15 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
 
       case 'tts_audio':
       case 'tts_audio_chunk':
-        // Handle TTS audio playback
+        // Handle TTS audio playback using mobile-optimized playback
         if (data.audio_data) {
           try {
-            const audioData = atob(data.audio_data);
-            const arrayBuffer = new ArrayBuffer(audioData.length);
-            const view = new Uint8Array(arrayBuffer);
-            for (let i = 0; i < audioData.length; i++) {
-              view[i] = audioData.charCodeAt(i);
+            const success = await playMobileAudio(data.audio_data, 'wav');
+            if (success) {
+              console.log('V2 TTS audio played successfully');
+            } else {
+              console.warn('V2 Failed to play TTS audio');
             }
-            
-            // Create audio blob and play it
-            const audioBlob = new Blob([arrayBuffer], { type: 'audio/wav' });
-            const audioUrl = URL.createObjectURL(audioBlob);
-            const audio = new Audio(audioUrl);
-            
-            audio.onended = () => {
-              URL.revokeObjectURL(audioUrl); // Clean up
-              console.log('V2 TTS audio playback completed');
-            };
-            
-            audio.play().catch(error => {
-              console.error('V2 Failed to play TTS audio:', error);
-            });
-            
-            console.log('V2 Playing TTS audio response, size:', arrayBuffer.byteLength);
           } catch (error) {
             console.error('V2 Failed to decode TTS audio:', error);
           }
