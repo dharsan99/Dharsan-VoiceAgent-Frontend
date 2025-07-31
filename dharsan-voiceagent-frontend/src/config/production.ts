@@ -1,15 +1,15 @@
 // Production Configuration for GKE Phase 5 Deployment
 export const PRODUCTION_CONFIG = {
-  // GKE Phase 5 Production URLs - Using HTTP for immediate testing
-  WHIP_URL: import.meta.env.VITE_WHIP_URL || 'http://34.133.216.59:80/whip', // Media Server HTTP connection
-  ORCHESTRATOR_WS_URL: import.meta.env.VITE_WEBSOCKET_URL || 'ws://34.133.216.59:80/ws', // Orchestrator WebSocket HTTP connection
-  ORCHESTRATOR_HTTP_URL: import.meta.env.VITE_BACKEND_URL || 'http://34.133.216.59:80', // Orchestrator HTTP API direct connection
-  ORCHESTRATOR_GRPC_URL: import.meta.env.VITE_WEBSOCKET_URL?.replace('/ws', '/grpc') || 'ws://34.133.216.59:80/grpc', // Orchestrator gRPC WebSocket HTTP connection
+  // GKE Phase 5 Production URLs - Using HTTPS/WSS for production
+  WHIP_URL: import.meta.env.VITE_WHIP_URL || 'https://34.133.216.59:443/whip', // Media Server HTTPS connection
+  ORCHESTRATOR_WS_URL: import.meta.env.VITE_WEBSOCKET_URL || 'wss://34.133.216.59:443/ws', // Orchestrator WebSocket HTTPS connection
+  ORCHESTRATOR_HTTP_URL: import.meta.env.VITE_BACKEND_URL || 'https://34.133.216.59:443', // Orchestrator HTTP API HTTPS connection
+  ORCHESTRATOR_GRPC_URL: import.meta.env.VITE_WEBSOCKET_URL?.replace('/ws', '/grpc') || 'wss://34.133.216.59:443/grpc', // Orchestrator gRPC WebSocket HTTPS connection
   
   // Service URLs (internal cluster IPs - for reference)
-  STT_SERVICE_URL: import.meta.env.VITE_STT_SERVICE_URL || 'http://34.133.216.59:80/stt', // STT Service
-  TTS_SERVICE_URL: import.meta.env.VITE_TTS_SERVICE_URL || 'http://34.133.216.59:80/tts', // TTS Service (Port 5000, not 8000)
-  LLM_SERVICE_URL: import.meta.env.VITE_LLM_SERVICE_URL || 'http://34.133.216.59:80/llm', // LLM Service
+  STT_SERVICE_URL: import.meta.env.VITE_STT_SERVICE_URL || 'https://34.133.216.59:443/stt', // STT Service
+  TTS_SERVICE_URL: import.meta.env.VITE_TTS_SERVICE_URL || 'https://34.133.216.59:443/tts', // TTS Service (Port 5000, not 8000)
+  LLM_SERVICE_URL: import.meta.env.VITE_LLM_SERVICE_URL || 'https://34.133.216.59:443/llm', // LLM Service
   
   // Environment
   ENVIRONMENT: import.meta.env.VITE_ENVIRONMENT || 'production',
