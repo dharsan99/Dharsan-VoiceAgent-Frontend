@@ -1,10 +1,10 @@
 // Production Configuration for GKE Phase 5 Deployment
 export const PRODUCTION_CONFIG = {
-  // GKE Phase 5 Production URLs - Using LoadBalancer IPs (HTTP/WS for now)
-  WHIP_URL: import.meta.env.VITE_WHIP_URL || 'http://34.70.216.41:8001/whip', // Media Server LoadBalancer IP
-  ORCHESTRATOR_WS_URL: import.meta.env.VITE_WEBSOCKET_URL || 'ws://34.70.216.41:8001/ws', // Orchestrator WebSocket
-  ORCHESTRATOR_HTTP_URL: import.meta.env.VITE_BACKEND_URL || 'http://34.70.216.41:8001', // Orchestrator HTTP API
-  ORCHESTRATOR_GRPC_URL: import.meta.env.VITE_WEBSOCKET_URL?.replace('/ws', '/grpc') || 'ws://34.70.216.41:8001/grpc', // Orchestrator gRPC WebSocket
+  // GKE Phase 5 Production URLs - Using secure proxy for HTTPS compatibility
+  WHIP_URL: import.meta.env.VITE_WHIP_URL || 'https://dharsan-voice-agent-frontend.vercel.app/api/backend/whip', // Media Server via secure proxy
+  ORCHESTRATOR_WS_URL: import.meta.env.VITE_WEBSOCKET_URL || 'wss://dharsan-voice-agent-frontend.vercel.app/api/backend/ws', // Orchestrator WebSocket via secure proxy
+  ORCHESTRATOR_HTTP_URL: import.meta.env.VITE_BACKEND_URL || 'https://dharsan-voice-agent-frontend.vercel.app/api/backend', // Orchestrator HTTP API via secure proxy
+  ORCHESTRATOR_GRPC_URL: import.meta.env.VITE_WEBSOCKET_URL?.replace('/ws', '/grpc') || 'wss://dharsan-voice-agent-frontend.vercel.app/api/backend/grpc', // Orchestrator gRPC WebSocket via secure proxy
   
   // Service URLs (internal cluster IPs - for reference)
   STT_SERVICE_URL: import.meta.env.VITE_STT_SERVICE_URL || 'http://34.70.216.41:8001/stt', // STT Service

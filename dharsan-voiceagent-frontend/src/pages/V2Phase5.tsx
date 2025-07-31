@@ -15,7 +15,7 @@ const V2Phase5: React.FC = () => {
   const [showTestSteps, setShowTestSteps] = useState(false);
   const [showHealthCheck, setShowHealthCheck] = useState(false);
   const [useEventDriven, setUseEventDriven] = useState(true);
-  const [isProduction, setIsProduction] = useState(false);
+  const [isProduction, setIsProduction] = useState(true);
   const [stepStatus, setStepStatus] = useState<'idle' | 'listening' | 'processing' | 'speaking'>('idle');
   const [logs, setLogs] = useState<string[]>([]);
   

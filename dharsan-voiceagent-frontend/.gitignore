@@ -12,7 +12,7 @@ dist-ssr/
 build/
 *.local
 
-# Environment files
+# Environment files (Sensitive - Never commit these!)
 .env
 .env.local
 .env.development
@@ -21,8 +21,17 @@ build/
 .env.local.backup
 .env.local.phase2
 .env.*.local
+.env.production.local
+.env.staging
+.env.preview
 
-# Secrets and sensitive files
+# OIDC and Authentication files
+.oidc/
+oidc-config.json
+auth-config.json
+vercel.json.local
+
+# Secrets and sensitive files (CRITICAL - Never commit these!)
 secrets/
 *.key
 *.pem
@@ -33,6 +42,20 @@ service-account*.json
 credentials.json
 firebase-credentials.json
 google-credentials.json
+google-service-account.json
+speechtotext-*.json
+voice-agent-*.json
+
+# OIDC and JWT tokens
+*.jwt
+*.token
+oidc-token.json
+vercel-token.json
+
+# API Keys and Tokens
+api-keys.txt
+tokens.txt
+secrets.txt
 
 # IDE and editor files
 .vscode/
@@ -180,10 +203,15 @@ phase2-backend-test-results.json
 *_SECRETS*.md
 *_CREDENTIALS*.md
 
-# Kubernetes secrets
+# Kubernetes secrets and sensitive configs
 k8s/secrets/
 k8s/*-secrets.yaml
 k8s/*-credentials.yaml
+k8s/*-secret.yaml
+k8s/secrets/
+k8s/configmaps/
+k8s/*-config.yaml
+k8s/*-env.yaml
 
 # Deployment scripts that might contain secrets
 deploy-*.sh
