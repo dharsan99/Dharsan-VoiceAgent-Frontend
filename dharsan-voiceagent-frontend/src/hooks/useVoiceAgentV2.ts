@@ -42,27 +42,7 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
     version: '2.0.0'
   });
 
-  console.log('V2 useVoiceAgentV2 initialized with state:', state);
 
-  // Override setState to add debugging for processingStatus changes
-  const setStateWithDebug = useCallback((updater: any) => {
-    setState(prev => {
-      const newState = typeof updater === 'function' ? updater(prev) : updater;
-      if (prev.processingStatus !== newState.processingStatus) {
-        console.log('V2 processingStatus changed from', prev.processingStatus, 'to', newState.processingStatus);
-      }
-      return newState;
-    });
-  }, []);
-
-  // Monitor state changes for debugging
-  useEffect(() => {
-    console.log('V2 State changed:', {
-      connectionStatus: state.connectionStatus,
-      processingStatus: state.processingStatus,
-      sessionId: state.sessionId
-    });
-  }, [state.connectionStatus, state.processingStatus, state.sessionId]);
 
   const [isRecording, setIsRecording] = useState(false);
   const [networkStats, setNetworkStats] = useState<NetworkStats>({
@@ -92,7 +72,8 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
     if (isRecording) return;
     
     try {
-      console.log('V2 startRecording called - isRecording:', isRecording);
+      // Reset final message sent flag for new recording session
+      finalMessageSentRef.current = false;
       
       // Clear previous audio chunks
       audioChunksRef.current = [];
@@ -124,20 +105,16 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
         });
       }
       
-      console.log('V2 Loading audio processor...');
-      
       // Load audio processor
       try {
         await audioContextRef.current.audioWorklet.addModule('/audio-processor.js');
-        console.log('V2 Audio processor loaded successfully');
       } catch (error) {
-        console.warn('V2 Failed to load audio processor:', error);
         // Continue without audio processor - don't fail the entire recording
       }
       
       const processor = new AudioWorkletNode(audioContextRef.current, 'audio-processor');
       audioProcessorRef.current = processor;
-      console.log('V2 Audio processor node created');
+
 
       // Create media stream source
       const source = audioContextRef.current.createMediaStreamSource(stream);
@@ -147,8 +124,8 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
           const audioData = new Int16Array(event.data.audioData);
           audioChunksRef.current.push(audioData);
           
-          // Send audio data to WebSocket if connected
-          if (websocketRef.current?.readyState === WebSocket.OPEN && sessionIdRef.current) {
+          // Only send non-final audio data if final message hasn't been sent yet
+          if (!finalMessageSentRef.current && websocketRef.current?.readyState === WebSocket.OPEN && sessionIdRef.current) {
             const audioMessage = {
               event: 'audio_data',
               session_id: sessionIdRef.current,
@@ -165,7 +142,6 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
 
       setState(prev => ({ ...prev, processingStatus: 'listening' }));
       setIsRecording(true);
-      console.log('V2 Recording started successfully');
       
     } catch (error) {
       console.error('V2 Failed to start recording:', error);
@@ -193,7 +169,7 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
 
     setIsRecording(false);
     setState(prev => ({ ...prev, processingStatus: 'idle' }));
-    console.log('V2 Recording stopped - audio chunks collected:', audioChunksRef.current.length);
+
     
     // Clear any existing timeout
     if (stopRecordingTimeoutRef.current) {
@@ -203,11 +179,8 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
   }, [isRecording]);
 
   const triggerFinalMessage = useCallback(() => {
-    console.log('V2 triggerFinalMessage called - sending collected audio chunks');
-    
     // Prevent multiple final messages
     if (finalMessageSentRef.current) {
-      console.log('V2 Final message already sent, skipping');
       return;
     }
     
@@ -223,11 +196,7 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
         offset += chunk.length;
       }
       
-      console.log('V2 Concatenated audio chunks:', {
-        totalChunks: audioChunksRef.current.length,
-        totalSamples: totalSamples,
-        audioSize: concatenatedAudio.byteLength
-      });
+
       
       // Convert to base64 - use a more efficient approach for large arrays
       const uint8Array = new Uint8Array(concatenatedAudio.buffer);
@@ -249,34 +218,22 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
         timestamp: new Date().toISOString()
       };
       
-      console.log('V2 Sending final message with collected audio:', {
-        sessionId: sessionIdRef.current,
-        audioSize: concatenatedAudio.byteLength,
-        base64Size: audioBase64.length,
-        totalChunks: audioChunksRef.current.length
-      });
+
       
       try {
         // Send final message immediately
         websocketRef.current.send(JSON.stringify(finalMessage));
-        console.log('V2 Sent final audio message with collected chunks');
         finalMessageSentRef.current = true; // Mark as sent
         
         // Clear collected audio chunks
         audioChunksRef.current = [];
       } catch (error) {
-        console.error('V2 Failed to send final message:', error);
+        // Handle send error silently
       }
-    } else {
-      console.error('V2 Cannot send final message - WebSocket not ready or no session ID');
-      console.log('V2 WebSocket state:', websocketRef.current?.readyState);
-      console.log('V2 Session ID:', sessionIdRef.current);
     }
   }, []);
 
   const disconnect = useCallback(() => {
-    console.log('V2 Disconnect called - checking why...');
-    console.log('V2 Current state - isRecording:', isRecording, 'websocket state:', websocketRef.current?.readyState);
     
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
@@ -341,7 +298,6 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
       ws.onopen = () => {
         setState(prev => ({ ...prev, connectionStatus: 'connected' }));
         startHeartbeat();
-        console.log('V2 WebSocket connected');
         
         // Send greeting request to establish session
         const greetingMessage = {
@@ -349,7 +305,6 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
           timestamp: new Date().toISOString()
         };
         ws.send(JSON.stringify(greetingMessage));
-        console.log('V2 Sent greeting request:', greetingMessage);
       };
 
       ws.onmessage = (event) => {
@@ -357,7 +312,7 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
           const data = JSON.parse(event.data);
           handleWebSocketMessage(data);
         } catch (error) {
-          console.error('Failed to parse WebSocket message:', error);
+          // Handle parse error silently
         }
       };
 
@@ -368,7 +323,6 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
           processingStatus: 'idle'
         }));
         stopHeartbeat();
-        console.log('V2 WebSocket disconnected:', event.code, event.reason);
         
         // Auto-reconnect logic
         if (event.code !== 1000) { // Not a normal closure
@@ -382,7 +336,6 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
           connectionStatus: 'error',
           error: 'WebSocket connection error'
         }));
-        console.error('V2 WebSocket error:', error);
       };
 
     } catch (error) {
@@ -398,15 +351,11 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
   const sendMessage = useCallback((message: any) => {
     if (websocketRef.current?.readyState === WebSocket.OPEN) {
       websocketRef.current.send(JSON.stringify(message));
-      console.log('V2 Sent custom message:', message);
-    } else {
-      console.error('V2 WebSocket not connected, cannot send message');
     }
   }, []);
 
   // Message handling
   const handleWebSocketMessage = useCallback(async (data: any) => {
-    console.log('V2 Received WebSocket message:', data.event || data.type, data);
     switch (data.event || data.type) {
       case 'connection_established':
         setState(prev => ({ 
@@ -414,17 +363,12 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
           sessionId: data.session_id,
           version: data.version
         }));
-        console.log('V2 Session established:', data.session_id);
         break;
 
       case 'greeting':
-        console.log('V2 Greeting received:', data.text);
         break;
         
       case 'greeting_audio':
-        console.log('V2 Greeting audio received:', data.text);
-        console.log('V2 Greeting audio data present:', !!data.audio_data);
-        console.log('V2 Greeting audio data length:', data.audio_data ? data.audio_data.length : 0);
         // Update state with greeting text for display
         setState(prev => ({ ...prev, aiResponse: data.text }));
         // Trigger a custom event to notify the parent component about the greeting
@@ -452,14 +396,12 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
         break;
 
       case 'final_transcript':
-        console.log('V2 Final transcript received - setting processingStatus to processing');
         setState(prev => ({ 
           ...prev, 
           transcript: data.text,
           interimTranscript: '',
           processingStatus: 'processing'
         }));
-        console.log('V2 Final transcript received:', data.text);
         
         // Now send trigger_llm with the final transcript
         if (websocketRef.current?.readyState === WebSocket.OPEN && sessionIdRef.current && data.text) {
@@ -470,7 +412,6 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
             timestamp: new Date().toISOString()
           };
           websocketRef.current.send(JSON.stringify(triggerLlmMessage));
-          console.log('V2 Triggered LLM processing with transcript:', data.text);
         }
         break;
 
@@ -481,7 +422,6 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
           aiResponse: data.text,
           processingStatus: 'speaking'
         }));
-        console.log('V2 LLM response received:', data.text);
         break;
 
       case 'tts_audio':
@@ -489,29 +429,21 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
         // Handle TTS audio playback using mobile-optimized playback
         if (data.audio_data) {
           try {
-            const success = await playMobileAudio(data.audio_data, 'wav');
-            if (success) {
-              console.log('V2 TTS audio played successfully');
-            } else {
-              console.warn('V2 Failed to play TTS audio');
-            }
+            await playMobileAudio(data.audio_data, 'wav');
           } catch (error) {
-            console.error('V2 Failed to decode TTS audio:', error);
+            // Handle audio playback error silently
           }
         }
         break;
 
       case 'processing_start':
-        console.log('V2 Processing started - setting processingStatus to processing');
         // Only set to processing if we're not already processing
         setState(prev => {
           if (prev.processingStatus === 'processing') {
-            console.log('V2 Already processing, ignoring processing_start');
             return prev;
           }
           return { ...prev, processingStatus: 'processing' };
         });
-        console.log('V2 Processing started');
         break;
 
       case 'processing_complete':
@@ -520,7 +452,8 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
           aiResponse: data.response || data.text,
           processingStatus: 'idle'  // Mark as idle when fully complete
         }));
-        console.log('V2 Processing completed - Pipeline finished');
+        // Reset final message sent flag so user can trigger another "Get Answer"
+        finalMessageSentRef.current = false;
         break;
 
       case 'error':
@@ -529,21 +462,21 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
           error: data.text || data.message || 'Unknown error',
           processingStatus: 'idle'
         }));
-        console.error('V2 Pipeline error:', data.text || data.message);
+        // Reset final message sent flag on error
+        finalMessageSentRef.current = false;
         break;
 
       case 'word_timing_start':
-        console.log('V2 Word timing started:', data.text);
         break;
 
       case 'word_highlight':
         // Handle word highlighting for visual feedback
-        console.log('V2 Word highlight:', data.word, data.word_index);
         break;
 
       case 'word_timing_complete':
         setState(prev => ({ ...prev, processingStatus: 'idle' }));
-        console.log('V2 Word timing completed - Pipeline finished');
+        // Reset final message sent flag when timing is complete
+        finalMessageSentRef.current = false;
         break;
 
       case 'info':
@@ -567,7 +500,7 @@ export const useVoiceAgentV2 = (websocketUrl?: string) => {
         break;
         
       case 'pong':
-        console.log('V2 Received pong');
+
         break;
 
       case 'pipeline_state_update':

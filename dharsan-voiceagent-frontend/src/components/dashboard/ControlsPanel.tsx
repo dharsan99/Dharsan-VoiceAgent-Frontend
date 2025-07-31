@@ -60,11 +60,17 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
   };
 
   const getAnswerButtonState = () => {
+    // Allow Get Answer if: connected AND listening AND not processing
+    // This allows users to trigger processing while actively listening
+    const disabled = connectionStatus !== 'connected' || 
+                    !isListening || 
+                    isProcessing;
+    
     return {
-      text: 'Get Answer',
-      icon: <Icons.Zap className="w-5 h-5" />,
+      text: isProcessing ? 'Processing...' : 'Get Answer',
+      icon: isProcessing ? <Icons.RefreshCw className="w-5 h-5 animate-spin" /> : <Icons.Zap className="w-5 h-5" />,
       onClick: onGetAnswer,
-      disabled: !isListening || connectionStatus !== 'connected' || isProcessing,
+      disabled,
       color: 'purple'
     };
   };

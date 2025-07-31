@@ -109,10 +109,11 @@ const V2Phase5: React.FC = () => {
   
   // Map connection status to exclude 'error' for ControlsPanel compatibility
   const controlsConnectionStatus = connectionStatus === 'error' ? 'disconnected' : connectionStatus;
+  
+
 
   // Auto-connect on component mount if production mode - TEMPORARILY DISABLED FOR DEBUGGING
   useEffect(() => {
-    console.log('V2Phase5 Auto-connect effect - isProduction:', isProduction, 'connectionStatus:', connectionStatus);
     // if (isProduction && connectionStatus === 'disconnected') {
     //   connect();
     // }
@@ -174,7 +175,6 @@ const V2Phase5: React.FC = () => {
   // Handle greeting received event
   useEffect(() => {
     const handleGreetingReceived = (event: CustomEvent) => {
-      console.log('V2Phase5 Greeting received:', event.detail);
       addConversationLog(`Greeting: ${event.detail.text}`);
     };
 
@@ -207,7 +207,6 @@ const V2Phase5: React.FC = () => {
       await connect();
       addConversationLog('Connected to voice agent');
     } catch (error) {
-      console.error('Failed to connect:', error);
       addConversationLog('Connection failed');
     }
   };
@@ -217,7 +216,6 @@ const V2Phase5: React.FC = () => {
       await startRecording();
       addConversationLog('Started listening');
     } catch (error) {
-      console.error('Failed to start listening:', error);
       addConversationLog('Failed to start listening');
     }
   };
@@ -230,7 +228,6 @@ const V2Phase5: React.FC = () => {
   const handleGetAnswer = () => {
     // Use the hook's triggerFinalMessage function to send final message
     triggerFinalMessage();
-    console.log('V2 Sent final message via Get Answer button');
     setConversationLogs(prev => [...prev, `Triggered AI processing pipeline`]);
   };
 
@@ -292,6 +289,13 @@ const V2Phase5: React.FC = () => {
                 >
                   <Icons.BarChart3 className="w-5 h-5" />
                   <span>Health Check</span>
+                </button>
+                <button 
+                  onClick={handleGetAnswer}
+                  className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('warning')}`}
+                >
+                  <Icons.Zap className="w-5 h-5" />
+                  <span>Test Get Answer</span>
                 </button>
                 <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('secondary')}`}>
                   <Icons.Activity className="w-5 h-5" />
