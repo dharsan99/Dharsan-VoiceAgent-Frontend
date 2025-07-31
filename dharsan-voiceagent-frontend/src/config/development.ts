@@ -1,10 +1,10 @@
 // Development Configuration for Testing
 export const DEVELOPMENT_CONFIG = {
   // Development URLs (Local development) - Using environment variables
-  WHIP_URL: import.meta.env.VITE_WHIP_URL || 'http://localhost:8001/whip',
-  ORCHESTRATOR_WS_URL: import.meta.env.VITE_WEBSOCKET_URL || 'ws://localhost:8004/ws',
-  ORCHESTRATOR_HTTP_URL: import.meta.env.VITE_BACKEND_URL || 'http://localhost:8004',
-  ORCHESTRATOR_GRPC_URL: import.meta.env.VITE_WEBSOCKET_URL?.replace('/ws', '/grpc') || 'ws://localhost:8004/grpc',
+  WHIP_URL: import.meta.env.VITE_WHIP_URL || 'http://34.70.216.41:8001/whip',
+  ORCHESTRATOR_WS_URL: import.meta.env.VITE_WEBSOCKET_URL || 'ws://34.70.216.41:8001/ws',
+  ORCHESTRATOR_HTTP_URL: import.meta.env.VITE_BACKEND_URL || 'http://34.70.216.41:8001',
+  ORCHESTRATOR_GRPC_URL: import.meta.env.VITE_WEBSOCKET_URL?.replace('/ws', '/grpc') || 'ws://34.70.216.41:8001/grpc',
   
   // Environment
   ENVIRONMENT: import.meta.env.VITE_ENVIRONMENT || 'development',
@@ -53,7 +53,7 @@ export const DEVELOPMENT_CONFIG = {
   }
 };
 
-// Helper function to get development URLs
+// Helper function to get development URLs  
 export const getDevelopmentUrls = () => {
   return {
     whipUrl: DEVELOPMENT_CONFIG.WHIP_URL,

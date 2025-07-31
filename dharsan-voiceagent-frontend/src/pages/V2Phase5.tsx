@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { navigateToHome } from '../utils/navigation';
 import { scrollbarStyles } from '../utils/uiUtils';
-import { useConnectionManager } from '../hooks/useConnectionManager';
+import { useVoiceAgentV2 } from '../hooks/useVoiceAgentV2';
 import TestStepsModal from '../components/TestStepsModal';
 import HealthCheckModal from '../components/HealthCheckModal';
 import DashboardHeader from '../components/dashboard/DashboardHeader';
@@ -18,6 +18,18 @@ const V2Phase5: React.FC = () => {
   const [isProduction, setIsProduction] = useState(false);
   const [stepStatus, setStepStatus] = useState<'idle' | 'listening' | 'processing' | 'speaking'>('idle');
   const [logs, setLogs] = useState<string[]>([]);
+  
+  // Real timing tracking for pipeline phases
+  const [phaseTimings, setPhaseTimings] = useState({
+    stt: 0,
+    llm: 0,
+    tts: 0
+  });
+  const [timingStartTimes, setTimingStartTimes] = useState({
+    stt: 0,
+    llm: 0,
+    tts: 0
+  });
 
   // Initialize production state from URL parameter
   useEffect(() => {
@@ -28,42 +40,201 @@ const V2Phase5: React.FC = () => {
     }
   }, []);
 
-  // Use the connection manager hook
+  // Use the real voice agent V2 hook with actual audio capture
   const {
     connectionStatus,
-    pipelineStatus,
-    phaseTimings,
-    isListening,
-    isProcessing,
-    hasAudioData,
-    audioLevel,
-    establishConnection,
-    updateMetrics,
-    toggleProduction,
-    startListening,
-    stopListening,
-    triggerLLM,
-    getEnvironmentUrl
-  } = useConnectionManager(isProduction, useEventDriven);
+    processingStatus,
+    sessionId,
+    transcript,
+    interimTranscript,
+    aiResponse,
+    error,
+    version,
+    isRecording,
+    networkStats,
+    sessionInfo,
+    connect,
+    disconnect,
+    startRecording,
+    stopRecording,
+    sendMessage,
+    clearTranscript,
+    clearError,
+    websocketRef,
+    triggerFinalMessage
+  } = useVoiceAgentV2();
 
-  // Initial conversation logs
+  // Map useVoiceAgentV2 state to component expectations
+  const isListening = isRecording;
+  const isProcessing = processingStatus === 'processing';
+  const hasAudioData = transcript.length > 0;
+  
+  // Audio level tracking
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [speakerLevel, setSpeakerLevel] = useState(0);
+  
+  // Update audio levels based on processing status
   useEffect(() => {
-    // Add initial logs through the connection manager
-    // This will be handled by the hook
-  }, [useEventDriven, isProduction]);
+    if (isListening) {
+      // Simulate microphone activity when listening
+      const interval = setInterval(() => {
+        // More realistic microphone levels with some variation
+        const baseLevel = Math.random() * 25 + 5; // 5-30% base level
+        const variation = Math.sin(Date.now() / 500) * 10; // Add some wave pattern
+        setAudioLevel(Math.max(0, Math.min(100, baseLevel + variation)));
+      }, 50);
+      return () => clearInterval(interval);
+    } else {
+      setAudioLevel(0);
+    }
+  }, [isListening]);
+  
+  // Update speaker level when TTS is playing
+  useEffect(() => {
+    if (processingStatus === 'speaking') {
+      const interval = setInterval(() => {
+        // More realistic speaker levels during TTS playback
+        const baseLevel = Math.random() * 35 + 15; // 15-50% base level
+        const variation = Math.sin(Date.now() / 300) * 15; // Add wave pattern
+        setSpeakerLevel(Math.max(0, Math.min(100, baseLevel + variation)));
+      }, 50);
+      return () => clearInterval(interval);
+    } else {
+      setSpeakerLevel(0);
+    }
+  }, [processingStatus]);
+  
+  // Map processing status to pipeline status for UI compatibility
+  const pipelineStatus = processingStatus === 'listening' || processingStatus === 'processing' || processingStatus === 'speaking' ? 'active' : 'idle';
+  
+  // Map connection status to exclude 'error' for ControlsPanel compatibility
+  const controlsConnectionStatus = connectionStatus === 'error' ? 'disconnected' : connectionStatus;
+
+  // Auto-connect on component mount if production mode - TEMPORARILY DISABLED FOR DEBUGGING
+  useEffect(() => {
+    console.log('V2Phase5 Auto-connect effect - isProduction:', isProduction, 'connectionStatus:', connectionStatus);
+    // if (isProduction && connectionStatus === 'disconnected') {
+    //   connect();
+    // }
+  }, [isProduction, connectionStatus, connect]);
+
+  // Track timing for pipeline phases
+  useEffect(() => {
+    if (processingStatus === 'processing') {
+      // Start timing for STT phase
+      setTimingStartTimes(prev => ({ ...prev, stt: Date.now() }));
+    } else if (processingStatus === 'speaking') {
+      // STT completed, start LLM timing
+      setTimingStartTimes(prev => {
+        if (prev.stt > 0) {
+          const sttDuration = Date.now() - prev.stt;
+          setPhaseTimings(phasePrev => ({ ...phasePrev, stt: sttDuration }));
+          return { ...prev, llm: Date.now() };
+        }
+        return prev;
+      });
+    } else if (processingStatus === 'idle' && timingStartTimes.tts > 0) {
+      // TTS completed, calculate final timings
+      const ttsDuration = Date.now() - timingStartTimes.tts;
+      setPhaseTimings(phasePrev => ({ ...phasePrev, tts: ttsDuration }));
+      setTimingStartTimes({ stt: 0, llm: 0, tts: 0 }); // Reset timing start times
+    }
+  }, [processingStatus, timingStartTimes.tts]);
+
+  // Handle LLM completion (when we receive aiResponse)
+  useEffect(() => {
+    if (aiResponse && timingStartTimes.llm > 0) {
+      const llmDuration = Date.now() - timingStartTimes.llm;
+      setPhaseTimings(phasePrev => ({ ...phasePrev, llm: llmDuration }));
+      setTimingStartTimes(prev => ({ ...prev, tts: Date.now() }));
+    }
+  }, [aiResponse, timingStartTimes.llm]);
+
+  // Conversation logs management
+  const [conversationLogs, setConversationLogs] = useState<string[]>([]);
+
+  const addConversationLog = (message: string) => {
+    setConversationLogs(prev => [...prev, message]);
+  };
+
+  // Add transcript to conversation when it changes
+  useEffect(() => {
+    if (transcript && transcript.trim()) {
+      addConversationLog(`User: ${transcript}`);
+    }
+  }, [transcript]);
+
+  // Add AI response to conversation when it changes
+  useEffect(() => {
+    if (aiResponse && aiResponse.trim()) {
+      addConversationLog(`AI: ${aiResponse}`);
+    }
+  }, [aiResponse]);
+
+  // Handle greeting received event
+  useEffect(() => {
+    const handleGreetingReceived = (event: CustomEvent) => {
+      console.log('V2Phase5 Greeting received:', event.detail);
+      addConversationLog(`Greeting: ${event.detail.text}`);
+    };
+
+    window.addEventListener('greetingReceived', handleGreetingReceived as EventListener);
+    return () => {
+      window.removeEventListener('greetingReceived', handleGreetingReceived as EventListener);
+    };
+  }, []);
 
   const getStatusDot = (status: boolean) => (
-    <div className={`w-2 h-2 rounded-full ${status ? 'bg-green-500' : 'bg-red-500'}`}></div>
+    <div className={`w-3 h-3 rounded-full ${status ? 'bg-green-400' : 'bg-red-400'}`}></div>
   );
 
   const handleToggleProduction = () => {
     setIsProduction(!isProduction);
-    toggleProduction();
+    if (connectionStatus === 'connected') {
+      disconnect();
+    }
   };
 
   const handleToggleMode = (newUseEventDriven: boolean) => {
     setUseEventDriven(newUseEventDriven);
+    if (connectionStatus === 'connected') {
+      disconnect();
+    }
   };
+
+  const handleConnect = async () => {
+    try {
+      await connect();
+      addConversationLog('Connected to voice agent');
+    } catch (error) {
+      console.error('Failed to connect:', error);
+      addConversationLog('Connection failed');
+    }
+  };
+
+  const handleStartListening = async () => {
+    try {
+      await startRecording();
+      addConversationLog('Started listening');
+    } catch (error) {
+      console.error('Failed to start listening:', error);
+      addConversationLog('Failed to start listening');
+    }
+  };
+
+  const handleStopListening = () => {
+    stopRecording();
+    addConversationLog('Stopped listening');
+  };
+
+  const handleGetAnswer = () => {
+    // Use the hook's triggerFinalMessage function to send final message
+    triggerFinalMessage();
+    console.log('V2 Sent final message via Get Answer button');
+    setConversationLogs(prev => [...prev, `Triggered AI processing pipeline`]);
+  };
+
+  const getEnvironmentUrl = () => isProduction ? 'ws://34.70.216.41:8001/ws' : 'ws://localhost:8001/ws';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
@@ -85,66 +256,46 @@ const V2Phase5: React.FC = () => {
       <main className="max-w-7xl mx-auto px-6 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-          {/* Left Column - Controls */}
+          {/* Left Column - Controls & Debug */}
           <div className="space-y-6">
             <ControlsPanel
-              connectionStatus={connectionStatus}
+              connectionStatus={controlsConnectionStatus}
               useEventDriven={useEventDriven}
               audioLevel={audioLevel}
-              onConnect={establishConnection}
-              onStartListening={startListening}
-              onStopListening={stopListening}
-              onTriggerLLM={triggerLLM}
+              speakerLevel={speakerLevel}
+              onConnect={handleConnect}
+              onStartListening={handleStartListening}
+              onStopListening={handleStopListening}
+              onGetAnswer={handleGetAnswer}
               isListening={isListening}
               isProcessing={isProcessing}
               hasAudioData={hasAudioData}
             />
 
-            {/* Pipeline Card */}
+            {/* Debug Card - Moved from right column */}
             <div className="bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">
               <div className="flex items-center space-x-2 mb-4">
-                <Icons.Play className="w-5 h-5 text-cyan-400" />
-                <h3 className="text-lg font-semibold text-white">Pipeline</h3>
+                <Icons.Status className="w-5 h-5 text-cyan-400" />
+                <h3 className="text-lg font-semibold text-white">Debug</h3>
               </div>
               <div className="space-y-3">
-                {useEventDriven ? (
-                  // Event-Driven Pipeline Controls
-                  <>
-                    <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('primary')}`}>
-                      <Icons.Play className="w-5 h-5" />
-                      <span>Start Session</span>
-                    </button>
-                    <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('secondary', true)}`}>
-                      <Icons.Stop className="w-5 h-5" />
-                      <span>Stop Session</span>
-                    </button>
-                    <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('purple')}`}>
-                      <Icons.FileText className="w-5 h-5" />
-                      <span>Process Transcript</span>
-                    </button>
-                  </>
-                ) : (
-                  // WHIP WebRTC Pipeline Controls
-                  <>
-                    <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('primary')}`}>
-                      <Icons.Play className="w-5 h-5" />
-                      <span>Connect WHIP</span>
-                    </button>
-                    <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('secondary', true)}`}>
-                      <Icons.Stop className="w-5 h-5" />
-                      <span>Disconnect</span>
-                    </button>
-                    <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('purple')}`}>
-                      <Icons.FileText className="w-5 h-5" />
-                      <span>AI Processing</span>
-                    </button>
-                  </>
-                )}
-              </div>
-              <div className="mt-4">
-                <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('warning')}`}>
-                  <Icons.RefreshCw className="w-5 h-5" />
-                  <span>Reset Pipeline</span>
+                <button 
+                  onClick={() => setShowTestSteps(true)}
+                  className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('danger')}`}
+                >
+                  <Icons.Status className="w-5 h-5" />
+                  <span>Test Steps</span>
+                </button>
+                <button 
+                  onClick={() => setShowHealthCheck(true)}
+                  className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('primary')}`}
+                >
+                  <Icons.BarChart3 className="w-5 h-5" />
+                  <span>Health Check</span>
+                </button>
+                <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('secondary')}`}>
+                  <Icons.Activity className="w-5 h-5" />
+                  <span>Audio Stats</span>
                 </button>
               </div>
             </div>
@@ -164,13 +315,96 @@ const V2Phase5: React.FC = () => {
               {/* Phase Timings Component */}
               <PhaseTimings phaseTimings={phaseTimings} />
 
-              {/* Backend Conversation Logs */}
-              <ConversationLogs 
-                isProduction={isProduction}
-                pipelineStatus={pipelineStatus}
-              />
+              {/* Session Info Card */}
+              {sessionId && (
+                <div className="bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <Icons.Wifi className="w-5 h-5 text-green-400" />
+                    <h3 className="text-lg font-semibold text-white">Session Info</h3>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-300">Session ID:</span>
+                      <span className="font-mono text-green-400 text-sm">{sessionId}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-300">Status:</span>
+                      <span className={`font-medium ${connectionStatus === 'connected' ? 'text-green-400' : 'text-red-400'}`}>
+                        {connectionStatus.toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-300">Environment:</span>
+                      <span className={`font-medium ${isProduction ? 'text-orange-400' : 'text-blue-400'}`}>
+                        {isProduction ? 'PRODUCTION' : 'LOCAL'}
+                      </span>
+                    </div>
+                    {transcript && (
+                      <div className="mt-3">
+                        <span className="text-gray-300">Last Transcript:</span>
+                        <div className="mt-1 p-2 bg-gray-700/30 rounded text-cyan-400 text-sm">{transcript}</div>
+                      </div>
+                    )}
+
+                  </div>
+                </div>
+              )}
+
+              {/* Live Voice Conversation with AI Responses */}
+              <div className="bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">
+                <div className="flex items-center space-x-2 mb-4">
+                  <Icons.MessageSquare className="w-5 h-5 text-cyan-400" />
+                  <h3 className="text-lg font-semibold text-white">Live Voice Conversation</h3>
+                </div>
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {/* User Input */}
+                  {transcript && (
+                    <div className="flex justify-end">
+                      <div className="bg-blue-600/30 border border-blue-500/30 rounded-lg p-3 max-w-xs">
+                        <p className="text-sm text-white">{transcript}</p>
+                        <p className="text-xs text-blue-300 mt-1">You</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* AI Response */}
+                  {aiResponse && (
+                    <div className="flex justify-start">
+                      <div className="bg-green-600/30 border border-green-500/30 rounded-lg p-3 max-w-xs">
+                        <p className="text-sm text-white">{aiResponse}</p>
+                        <p className="text-xs text-green-300 mt-1">AI Assistant</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* System Messages */}
+                  {conversationLogs.length > 0 && (
+                    conversationLogs.map((log, index) => (
+                      <div key={index} className="flex justify-center">
+                        <div className="bg-gray-700/30 border border-gray-600/30 rounded-lg p-2">
+                          <p className="text-xs text-gray-400">{log}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  
+                  {/* Empty State */}
+                  {!transcript && !aiResponse && conversationLogs.length === 0 && (
+                    <div className="text-center py-8">
+                      <p className="text-gray-400">No conversation yet</p>
+                      <p className="text-sm text-gray-500 mt-1">Connect and start speaking to begin</p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
+
+          </div>
+
+          {/* Right Column - System Status Only */}
+          <div className="space-y-6">
+            
             {/* System Status Card */}
             <div className="bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">
               <div className="flex items-center space-x-2 mb-4">
@@ -255,93 +489,11 @@ const V2Phase5: React.FC = () => {
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Right Column - Debug & Actions */}
-          <div className="space-y-6">
-            
-            {/* Debug Card */}
-            <div className="bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">
-              <div className="flex items-center space-x-2 mb-4">
-                <Icons.Status className="w-5 h-5 text-cyan-400" />
-                <h3 className="text-lg font-semibold text-white">Debug</h3>
-              </div>
-              <div className="space-y-3">
-                <button 
-                  onClick={() => setShowTestSteps(true)}
-                  className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('danger')}`}
-                >
-                  <Icons.Status className="w-5 h-5" />
-                  <span>Test Steps</span>
-                </button>
-                <button 
-                  onClick={() => setShowHealthCheck(true)}
-                  className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('primary')}`}
-                >
-                  <Icons.BarChart3 className="w-5 h-5" />
-                  <span>Health Check</span>
-                </button>
-                <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('secondary')}`}>
-                  <Icons.Activity className="w-5 h-5" />
-                  <span>Audio Stats</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Quick Actions Card */}
-            <div className="bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">
-              <div className="flex items-center space-x-2 mb-4">
-                <Icons.Zap className="w-5 h-5 text-cyan-400" />
-                <h3 className="text-lg font-semibold text-white">Quick Actions</h3>
-              </div>
-              <div className="space-y-3">
-                {useEventDriven ? (
-                  // Event-Driven Quick Actions
-                  <>
-                    <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('secondary', true)}`}>
-                      <Icons.Stop className="w-5 h-5" />
-                      <span>Stop Conversation</span>
-                    </button>
-                    <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('warning')}`}>
-                      <Icons.RefreshCw className="w-5 h-5" />
-                      <span>Pause Conversation</span>
-                    </button>
-                    <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('secondary', true)}`}>
-                      <Icons.Trash2 className="w-5 h-5" />
-                      <span>Clear Session</span>
-                    </button>
-                  </>
-                ) : (
-                  // WHIP WebRTC Quick Actions
-                  <>
-                    <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('secondary', true)}`}>
-                      <Icons.Stop className="w-5 h-5" />
-                      <span>Stop Pipeline</span>
-                    </button>
-                    <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('warning')}`}>
-                      <Icons.RefreshCw className="w-5 h-5" />
-                      <span>Reset Session</span>
-                    </button>
-                    <button className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor('secondary', true)}`}>
-                      <Icons.Trash2 className="w-5 h-5" />
-                      <span>Cleanup Connection</span>
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-
 
           </div>
         </div>
 
-        {/* Global Reset Button */}
-        <div className="mt-8 text-center">
-          <button className={`px-8 py-4 rounded-lg font-bold text-lg flex items-center justify-center space-x-3 mx-auto ${getButtonColor('warning')}`}>
-            <Icons.RefreshCw className="w-6 h-6" />
-            <span>Reset Pipeline</span>
-          </button>
-        </div>
+
       </main>
 
       {/* Test Steps Modal */}

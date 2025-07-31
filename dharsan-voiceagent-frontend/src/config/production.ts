@@ -1,15 +1,15 @@
 // Production Configuration for GKE Phase 5 Deployment
 export const PRODUCTION_CONFIG = {
   // GKE Phase 5 Production URLs - Using LoadBalancer IPs (HTTP/WS for now)
-  WHIP_URL: import.meta.env.VITE_WHIP_URL || 'http://35.244.8.62:8001/whip', // Media Server LoadBalancer IP
-  ORCHESTRATOR_WS_URL: import.meta.env.VITE_WEBSOCKET_URL || 'ws://34.47.230.178:8004/ws', // Orchestrator WebSocket
-  ORCHESTRATOR_HTTP_URL: import.meta.env.VITE_BACKEND_URL || 'http://34.47.230.178:8004', // Orchestrator HTTP API
-  ORCHESTRATOR_GRPC_URL: import.meta.env.VITE_WEBSOCKET_URL?.replace('/ws', '/grpc') || 'ws://34.47.230.178:8004/grpc', // Orchestrator gRPC WebSocket
+  WHIP_URL: import.meta.env.VITE_WHIP_URL || 'http://34.70.216.41:8001/whip', // Media Server LoadBalancer IP
+  ORCHESTRATOR_WS_URL: import.meta.env.VITE_WEBSOCKET_URL || 'ws://34.70.216.41:8001/ws', // Orchestrator WebSocket
+  ORCHESTRATOR_HTTP_URL: import.meta.env.VITE_BACKEND_URL || 'http://34.70.216.41:8001', // Orchestrator HTTP API
+  ORCHESTRATOR_GRPC_URL: import.meta.env.VITE_WEBSOCKET_URL?.replace('/ws', '/grpc') || 'ws://34.70.216.41:8001/grpc', // Orchestrator gRPC WebSocket
   
   // Service URLs (internal cluster IPs - for reference)
-  STT_SERVICE_URL: import.meta.env.VITE_STT_SERVICE_URL || 'http://34.118.229.142:8000', // STT Service
-  TTS_SERVICE_URL: import.meta.env.VITE_TTS_SERVICE_URL || 'http://34.118.234.172:5000', // TTS Service (Port 5000, not 8000)
-  LLM_SERVICE_URL: import.meta.env.VITE_LLM_SERVICE_URL || 'http://34.118.227.19:11434', // LLM Service
+  STT_SERVICE_URL: import.meta.env.VITE_STT_SERVICE_URL || 'http://34.70.216.41:8001/stt', // STT Service
+  TTS_SERVICE_URL: import.meta.env.VITE_TTS_SERVICE_URL || 'http://34.70.216.41:8001/tts', // TTS Service (Port 5000, not 8000)
+  LLM_SERVICE_URL: import.meta.env.VITE_LLM_SERVICE_URL || 'http://34.70.216.41:8001/llm', // LLM Service
   
   // Environment
   ENVIRONMENT: import.meta.env.VITE_ENVIRONMENT || 'production',
@@ -74,7 +74,6 @@ export const getServiceUrls = () => {
   
   // Always use production URLs if production parameter is set
   if (forceProduction) {
-    console.log('🌐 [CONFIG] Using production URLs (forced via URL parameter)');
     return {
       whipUrl: PRODUCTION_CONFIG.WHIP_URL,
       orchestratorWsUrl: PRODUCTION_CONFIG.ORCHESTRATOR_WS_URL,
@@ -88,7 +87,6 @@ export const getServiceUrls = () => {
                       window.location.hostname !== '127.0.0.1';
   
   if (isProduction) {
-    console.log('🌐 [CONFIG] Using production URLs (detected production hostname)');
     return {
       whipUrl: PRODUCTION_CONFIG.WHIP_URL,
       orchestratorWsUrl: PRODUCTION_CONFIG.ORCHESTRATOR_WS_URL,
@@ -98,12 +96,11 @@ export const getServiceUrls = () => {
     };
   } else {
     // Development URLs - Using environment variables
-    console.log('🌐 [CONFIG] Using development URLs (localhost detected)');
     return {
-      whipUrl: import.meta.env.VITE_WHIP_URL || 'http://localhost:8001/whip',
-      orchestratorWsUrl: import.meta.env.VITE_WEBSOCKET_URL || 'ws://localhost:8004/ws',
-      orchestratorHttpUrl: import.meta.env.VITE_BACKEND_URL || 'http://localhost:8004',
-      orchestratorGrpcUrl: import.meta.env.VITE_WEBSOCKET_URL?.replace('/ws', '/grpc') || 'ws://localhost:8004/grpc',
+      whipUrl: import.meta.env.VITE_WHIP_URL || 'http://34.70.216.41:8001/whip',
+      orchestratorWsUrl: import.meta.env.VITE_WEBSOCKET_URL || 'ws://34.70.216.41:8001/ws',
+      orchestratorHttpUrl: import.meta.env.VITE_BACKEND_URL || 'http://34.70.216.41:8001',
+      orchestratorGrpcUrl: import.meta.env.VITE_WEBSOCKET_URL?.replace('/ws', '/grpc') || 'ws://34.70.216.41:8001/grpc',
       iceServers: PRODUCTION_CONFIG.ICE_SERVERS
     };
   }

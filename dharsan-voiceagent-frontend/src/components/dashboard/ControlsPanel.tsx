@@ -7,10 +7,11 @@ interface ControlsPanelProps {
   connectionStatus: 'disconnected' | 'connecting' | 'connected';
   useEventDriven: boolean;
   audioLevel: number;
+  speakerLevel?: number;
   onConnect: () => void;
   onStartListening?: () => void;
   onStopListening?: () => void;
-  onTriggerLLM?: () => void;
+  onGetAnswer?: () => void;
   isListening?: boolean;
   isProcessing?: boolean;
   hasAudioData?: boolean;
@@ -20,16 +21,17 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
   connectionStatus,
   useEventDriven,
   audioLevel,
+  speakerLevel = 0,
   onConnect,
   onStartListening,
   onStopListening,
-  onTriggerLLM,
+  onGetAnswer,
   isListening = false,
   isProcessing = false,
   hasAudioData = false
 }) => {
-  // Determine dynamic button state
-  const getDynamicButtonState = () => {
+  // Determine button states for two-button system
+  const getListenButtonState = () => {
     if (isProcessing) {
       return {
         text: 'Processing...',
@@ -38,18 +40,10 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
         disabled: true,
         color: 'gray'
       };
-    } else if (hasAudioData && !isListening) {
-      return {
-        text: 'Get Answer',
-        icon: <Icons.Zap className="w-5 h-5" />,
-        onClick: onTriggerLLM,
-        disabled: connectionStatus !== 'connected',
-        color: 'purple'
-      };
     } else if (isListening) {
       return {
-        text: 'Listening...',
-        icon: <Icons.Mic className="w-5 h-5" />,
+        text: 'Stop Listening',
+        icon: <Icons.Stop className="w-5 h-5" />,
         onClick: onStopListening,
         disabled: false,
         color: 'red'
@@ -57,7 +51,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
     } else {
       return {
         text: 'Start Listening',
-        icon: <Icons.Wifi className="w-5 h-5" />,
+        icon: <Icons.Mic className="w-5 h-5" />,
         onClick: onStartListening,
         disabled: connectionStatus !== 'connected',
         color: 'primary'
@@ -65,7 +59,18 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
     }
   };
 
-  const dynamicButton = getDynamicButtonState();
+  const getAnswerButtonState = () => {
+    return {
+      text: 'Get Answer',
+      icon: <Icons.Zap className="w-5 h-5" />,
+      onClick: onGetAnswer,
+      disabled: !isListening || connectionStatus !== 'connected' || isProcessing,
+      color: 'purple'
+    };
+  };
+
+  const listenButton = getListenButtonState();
+  const answerButton = getAnswerButtonState();
 
   return (
     <div className="bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">
@@ -80,15 +85,26 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
         />
 
         {useEventDriven ? (
-          // Event-Driven Mode Controls - Dynamic Button
+          // Event-Driven Mode Controls - Two Button System
           <>
+            {/* Start/Stop Listening Button */}
             <button 
-              onClick={dynamicButton.onClick}
-              disabled={dynamicButton.disabled}
-              className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor(dynamicButton.color, dynamicButton.disabled)}`}
+              onClick={listenButton.onClick}
+              disabled={listenButton.disabled}
+              className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor(listenButton.color, listenButton.disabled)}`}
             >
-              {dynamicButton.icon}
-              <span>{dynamicButton.text}</span>
+              {listenButton.icon}
+              <span>{listenButton.text}</span>
+            </button>
+            
+            {/* Get Answer Button */}
+            <button 
+              onClick={answerButton.onClick}
+              disabled={answerButton.disabled}
+              className={`w-full p-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${getButtonColor(answerButton.color, answerButton.disabled)}`}
+            >
+              {answerButton.icon}
+              <span>{answerButton.text}</span>
             </button>
           </>
         ) : (
@@ -120,15 +136,40 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
         
         {/* Audio Level Display */}
         <div className="pt-3 border-t border-gray-700">
-          <div className="flex items-center justify-between text-sm text-gray-400 mb-2">
-            <span>Audio Level</span>
-            <span>{audioLevel}%</span>
-          </div>
-          <div className="w-full bg-gray-700 rounded-full h-2">
-            <div 
-              className="bg-orange-500 h-2 rounded-full transition-all duration-300" 
-              style={{ width: `${audioLevel}%` }}
-            ></div>
+          <div className="space-y-3">
+            {/* Microphone Level */}
+            <div>
+              <div className="flex items-center justify-between text-sm text-gray-400 mb-2">
+                <div className="flex items-center space-x-2">
+                  <Icons.Mic className="w-4 h-4" />
+                  <span>Microphone</span>
+                </div>
+                <span>{audioLevel}%</span>
+              </div>
+              <div className="w-full bg-gray-700 rounded-full h-2">
+                <div 
+                  className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
+                  style={{ width: `${audioLevel}%` }}
+                ></div>
+              </div>
+            </div>
+            
+            {/* Speaker Level */}
+            <div>
+              <div className="flex items-center justify-between text-sm text-gray-400 mb-2">
+                <div className="flex items-center space-x-2">
+                  <Icons.Volume2 className="w-4 h-4" />
+                  <span>Speaker</span>
+                </div>
+                <span>{speakerLevel}%</span>
+              </div>
+              <div className="w-full bg-gray-700 rounded-full h-2">
+                <div 
+                  className="bg-green-500 h-2 rounded-full transition-all duration-300" 
+                  style={{ width: `${speakerLevel}%` }}
+                ></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

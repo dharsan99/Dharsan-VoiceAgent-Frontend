@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { establishBackendConnection, getEnvironmentUrl, updateUrlWithProduction } from '../utils/connectionUtils';
 import { fetchPipelineStatus, fetchServiceMetrics, type PhaseTimings } from '../utils/metricsUtils';
 import { ConversationLogger } from '../utils/loggerUtils';
@@ -14,6 +14,7 @@ export const useConnectionManager = (isProduction: boolean, useEventDriven: bool
   const [audioLevel, setAudioLevel] = useState(0);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
+  const audioChunksRef = useRef<Blob[]>([]);
   const [logger] = useState(() => new ConversationLogger());
 
   const establishConnection = useCallback(async () => {
@@ -56,20 +57,20 @@ export const useConnectionManager = (isProduction: boolean, useEventDriven: bool
 
     try {
       // Fetch service metrics (gracefully handle CORS issues)
-      const serviceMetrics = await fetchServiceMetrics(isProduction);
+      // const serviceMetrics = await fetchServiceMetrics(isProduction); // Disabled: /metrics endpoint not implemented in backend
       
-      if (serviceMetrics.stt) {
-        setPhaseTimings(prev => ({ ...prev, stt: serviceMetrics.stt! }));
-        logger.addLog(`STT: Average latency ${serviceMetrics.stt.toFixed(0)}ms`);
-      }
-      if (serviceMetrics.tts) {
-        setPhaseTimings(prev => ({ ...prev, tts: serviceMetrics.tts! }));
-        logger.addLog(`TTS: Average latency ${serviceMetrics.tts.toFixed(0)}ms`);
-      }
-      if (serviceMetrics.llm) {
-        setPhaseTimings(prev => ({ ...prev, llm: serviceMetrics.llm! }));
-        logger.addLog(`LLM: Average latency ${serviceMetrics.llm.toFixed(0)}ms`);
-      }
+      // if (serviceMetrics.stt) {
+      //   setPhaseTimings(prev => ({ ...prev, stt: serviceMetrics.stt! }));
+      //   logger.addLog(`STT: Average latency ${serviceMetrics.stt.toFixed(0)}ms`);
+      // }
+      // if (serviceMetrics.tts) {
+      //   setPhaseTimings(prev => ({ ...prev, tts: serviceMetrics.tts! }));
+      //   logger.addLog(`TTS: Average latency ${serviceMetrics.tts.toFixed(0)}ms`);
+      // }
+      // if (serviceMetrics.llm) {
+      //   setPhaseTimings(prev => ({ ...prev, llm: serviceMetrics.llm! }));
+      //   logger.addLog(`LLM: Average latency ${serviceMetrics.llm.toFixed(0)}ms`);
+      // }
     } catch (error) {
       // Log any errors with service metrics
       logger.addErrorLog('general', 'Error: Unable to fetch service metrics');
@@ -122,6 +123,7 @@ export const useConnectionManager = (isProduction: boolean, useEventDriven: bool
         setIsProcessing(false);
         setHasAudioData(false);
         setAudioChunks([]);
+        audioChunksRef.current = [];
         
         // Create MediaRecorder
         const recorder = new MediaRecorder(stream, {
@@ -153,7 +155,11 @@ export const useConnectionManager = (isProduction: boolean, useEventDriven: bool
         // Handle recording data
         recorder.ondataavailable = (event) => {
           if (event.data.size > 0) {
-            setAudioChunks(prev => [...prev, event.data]);
+            setAudioChunks(prev => {
+              const newChunks = [...prev, event.data];
+              audioChunksRef.current = newChunks; // Keep ref in sync
+              return newChunks;
+            });
           }
         };
         
@@ -161,49 +167,55 @@ export const useConnectionManager = (isProduction: boolean, useEventDriven: bool
         recorder.start(100); // Record in 100ms chunks
         logger.addLog('Started recording audio...');
         
-        // Auto-stop after 5 seconds
-        setTimeout(() => {
-          if (isListening && recorder.state === 'recording') {
-            stopListening();
+        // Auto-stop after 5 seconds (use recorder state, not isListening to avoid stale closure)
+        const autoStopTimeout = setTimeout(() => {
+          if (recorder.state === 'recording') {
+            logger.addLog('Auto-stopping recording after 5 seconds');
+            recorder.stop();
           }
         }, 5000);
+        
+        // Clean up timeout when recorder stops
+        recorder.onstop = () => {
+          clearTimeout(autoStopTimeout);
+          setIsListening(false);
+          setAudioLevel(0);
+          
+          // Check if we have audio data (use ref to avoid stale closure)
+          const currentChunks = audioChunksRef.current;
+          if (currentChunks.length > 0) {
+            setHasAudioData(true);
+            logger.addLog(`Audio data collected (${currentChunks.length} chunks), ready for processing`);
+          } else {
+            setHasAudioData(false);
+            logger.addLog('No audio data collected');
+          }
+        };
         
       } catch (error) {
         logger.addLog(`Microphone access denied: ${error}`);
         console.error('Microphone access error:', error);
       }
     }
-  }, [connectionStatus, logger, isListening]);
+  }, [connectionStatus, logger]);
 
   const stopListening = useCallback(() => {
     if (mediaRecorder && mediaRecorder.state === 'recording') {
-      mediaRecorder.stop();
-      logger.addLog('Stopped recording audio');
+      logger.addLog('Manually stopping recording');
+      mediaRecorder.stop(); // This will trigger the onstop handler which manages state
     }
     
     // Stop all tracks in the stream
     if (mediaRecorder) {
       mediaRecorder.stream.getTracks().forEach(track => track.stop());
     }
-    
-    setIsListening(false);
-    setAudioLevel(0);
-    
-    // Check if we have audio data
-    if (audioChunks.length > 0) {
-      setHasAudioData(true);
-      logger.addLog(`Audio data collected (${audioChunks.length} chunks), ready for processing`);
-    } else {
-      setHasAudioData(false);
-      logger.addLog('No audio data collected');
-    }
-  }, [logger, mediaRecorder, audioChunks.length]);
+  }, [logger, mediaRecorder]);
 
   const triggerLLM = useCallback(async () => {
     if (connectionStatus === 'connected' && hasAudioData && audioChunks.length > 0) {
       setIsProcessing(true);
       setIsListening(false);
-      logger.addLog('Triggering LLM processing...');
+      logger.addLog('Starting voice processing pipeline...');
       logger.addLog(`Processing ${audioChunks.length} audio chunks...`);
       
       try {
@@ -222,36 +234,66 @@ export const useConnectionManager = (isProduction: boolean, useEventDriven: bool
         logger.addLog(`Connecting to orchestrator: ${wsUrl}`);
         
         const websocket = new WebSocket(wsUrl);
+        const sessionId = `session_${Date.now()}`;
         
         websocket.onopen = () => {
-          logger.addLog('WebSocket connected, sending audio data...');
+          logger.addLog('WebSocket connected, sending audio for STT processing...');
           
-          // Send audio data to trigger LLM processing
-          const message = {
-            event: 'trigger_llm',
-            session_id: `session_${Date.now()}`,
+          // STEP 1: Send audio_data for STT processing (correct flow)
+          const audioMessage = {
+            event: 'audio_data',
+            session_id: sessionId,
             audio_data: base64Audio,
+            is_final: true,
             timestamp: new Date().toISOString()
           };
           
-          websocket.send(JSON.stringify(message));
-          logger.addLog('Audio data sent to backend for processing');
+          websocket.send(JSON.stringify(audioMessage));
+          logger.addLog('Audio data sent to STT service for transcription');
         };
         
         websocket.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            logger.addLog(`Received response: ${data.event || data.type || 'unknown'}`);
+            logger.addLog(`Received: ${data.event || data.type || 'unknown'}`);
             
-            if (data.event === 'processing_complete' || data.type === 'processing_complete') {
-              logger.addLog('AI processing completed successfully');
+            if (data.event === 'final_transcript') {
+              // STEP 2: STT completed, now trigger LLM with transcript
+              logger.addLog(`STT completed: "${data.text}"`);
+              logger.addLog('Triggering LLM processing...');
+              
+              const triggerMessage = {
+                event: 'trigger_llm',
+                session_id: sessionId,
+                final_transcript: data.text,
+                timestamp: new Date().toISOString()
+              };
+              
+              websocket.send(JSON.stringify(triggerMessage));
+              logger.addLog('LLM processing request sent');
+              
+            } else if (data.event === 'ai_response') {
+              // STEP 3: LLM completed, show response
+              logger.addLog(`LLM response: "${data.text}"`);
+              
+            } else if (data.event === 'tts_audio') {
+              // STEP 4: TTS completed, final step
+              logger.addLog('TTS processing completed');
+              
+            } else if (data.event === 'processing_complete') {
+              logger.addLog('🎉 Voice pipeline completed successfully!');
               setIsProcessing(false);
               setHasAudioData(false);
               setAudioChunks([]);
+              audioChunksRef.current = [];
               websocket.close();
-            } else if (data.event === 'error' || data.type === 'error') {
-              logger.addLog(`Processing error: ${data.text || data.message}`);
+              
+            } else if (data.event === 'error') {
+              logger.addLog(`❌ Pipeline error: ${data.text || data.message}`);
               setIsProcessing(false);
+              setHasAudioData(false);
+              setAudioChunks([]);
+              audioChunksRef.current = [];
               websocket.close();
             }
           } catch (error) {
@@ -275,6 +317,7 @@ export const useConnectionManager = (isProduction: boolean, useEventDriven: bool
             setIsProcessing(false);
             setHasAudioData(false);
             setAudioChunks([]);
+            audioChunksRef.current = [];
             websocket.close();
           }
         }, 30000); // 30 second timeout

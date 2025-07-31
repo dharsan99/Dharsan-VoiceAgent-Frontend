@@ -70,30 +70,30 @@ const DEVELOPMENT_CONFIG: AppConfig = {
   VERSION: '5.0.0-dev',
   
   ORCHESTRATOR: {
-    WS_URL: import.meta.env.VITE_ORCHESTRATOR_WS_URL || 'ws://localhost:8004/ws',
-    HTTP_URL: import.meta.env.VITE_ORCHESTRATOR_HTTP_URL || 'http://localhost:8004',
-    GRPC_URL: import.meta.env.VITE_ORCHESTRATOR_GRPC_URL || 'ws://localhost:8004/grpc',
-    PORT: import.meta.env.VITE_ORCHESTRATOR_PORT || '8004',
+    WS_URL: import.meta.env.VITE_ORCHESTRATOR_WS_URL || 'ws://34.70.216.41:8001/ws',
+    HTTP_URL: import.meta.env.VITE_ORCHESTRATOR_HTTP_URL || 'http://34.70.216.41:8001',
+    GRPC_URL: import.meta.env.VITE_ORCHESTRATOR_GRPC_URL || 'ws://34.70.216.41:8001/grpc',
+    PORT: import.meta.env.VITE_ORCHESTRATOR_PORT || '8001',
   },
   
   MEDIA_SERVER: {
-    WHIP_URL: import.meta.env.VITE_MEDIA_SERVER_WHIP_URL || 'http://localhost:8001/whip',
-    HTTP_URL: import.meta.env.VITE_MEDIA_SERVER_HTTP_URL || 'http://localhost:8001',
+    WHIP_URL: import.meta.env.VITE_MEDIA_SERVER_WHIP_URL || 'http://34.70.216.41:8001/whip',
+    HTTP_URL: import.meta.env.VITE_MEDIA_SERVER_HTTP_URL || 'http://34.70.216.41:8001',
     PORT: import.meta.env.VITE_MEDIA_SERVER_PORT || '8001',
   },
   
   STT_SERVICE: {
-    HTTP_URL: import.meta.env.VITE_STT_SERVICE_URL || 'http://localhost:8000',
+    HTTP_URL: import.meta.env.VITE_STT_SERVICE_URL || 'http://34.70.216.41:8001',
     PORT: import.meta.env.VITE_STT_SERVICE_PORT || '8000',
   },
   
   TTS_SERVICE: {
-    HTTP_URL: import.meta.env.VITE_TTS_SERVICE_URL || 'http://localhost:5001',
+    HTTP_URL: import.meta.env.VITE_TTS_SERVICE_URL || 'http://34.70.216.41:8001',
     PORT: import.meta.env.VITE_TTS_SERVICE_PORT || '5001',
   },
   
   LLM_SERVICE: {
-    HTTP_URL: import.meta.env.VITE_LLM_SERVICE_URL || 'http://localhost:8003',
+    HTTP_URL: import.meta.env.VITE_LLM_SERVICE_URL || 'http://34.70.216.41:8001',
     PORT: import.meta.env.VITE_LLM_SERVICE_PORT || '8003',
   },
   
@@ -126,30 +126,30 @@ const PRODUCTION_CONFIG: AppConfig = {
   VERSION: '5.0.0',
   
   ORCHESTRATOR: {
-    WS_URL: import.meta.env.VITE_ORCHESTRATOR_WS_URL || 'ws://34.47.230.178:8004/ws',
-    HTTP_URL: import.meta.env.VITE_ORCHESTRATOR_HTTP_URL || 'http://34.47.230.178:8004',
-    GRPC_URL: import.meta.env.VITE_ORCHESTRATOR_GRPC_URL || 'ws://34.47.230.178:8004/grpc',
-    PORT: import.meta.env.VITE_ORCHESTRATOR_PORT || '8004',
+    WS_URL: import.meta.env.VITE_ORCHESTRATOR_WS_URL || 'ws://34.70.216.41:8001/ws',
+    HTTP_URL: import.meta.env.VITE_ORCHESTRATOR_HTTP_URL || 'http://34.70.216.41:8001',
+    GRPC_URL: import.meta.env.VITE_ORCHESTRATOR_GRPC_URL || 'ws://34.70.216.41:8001/grpc',
+    PORT: import.meta.env.VITE_ORCHESTRATOR_PORT || '8001',
   },
   
   MEDIA_SERVER: {
-    WHIP_URL: import.meta.env.VITE_MEDIA_SERVER_WHIP_URL || 'http://35.244.8.62:8001/whip',
-    HTTP_URL: import.meta.env.VITE_MEDIA_SERVER_HTTP_URL || 'http://35.244.8.62:8001',
+    WHIP_URL: import.meta.env.VITE_MEDIA_SERVER_WHIP_URL || 'http://34.70.216.41:8001/whip',
+    HTTP_URL: import.meta.env.VITE_MEDIA_SERVER_HTTP_URL || 'http://34.70.216.41:8001',
     PORT: import.meta.env.VITE_MEDIA_SERVER_PORT || '8001',
   },
   
   STT_SERVICE: {
-    HTTP_URL: import.meta.env.VITE_STT_SERVICE_URL || 'http://34.118.229.142:8000',
+    HTTP_URL: import.meta.env.VITE_STT_SERVICE_URL || 'http://34.70.216.41:8001',
     PORT: import.meta.env.VITE_STT_SERVICE_PORT || '8000',
   },
   
   TTS_SERVICE: {
-    HTTP_URL: import.meta.env.VITE_TTS_SERVICE_URL || 'http://34.118.234.172:5001',
+    HTTP_URL: import.meta.env.VITE_TTS_SERVICE_URL || 'http://34.70.216.41:8001',
     PORT: import.meta.env.VITE_TTS_SERVICE_PORT || '5001',
   },
   
   LLM_SERVICE: {
-    HTTP_URL: import.meta.env.VITE_LLM_SERVICE_URL || 'http://34.118.227.19:8003',
+    HTTP_URL: import.meta.env.VITE_LLM_SERVICE_URL || 'http://34.70.216.41:8001',
     PORT: import.meta.env.VITE_LLM_SERVICE_PORT || '8003',
   },
   
@@ -253,15 +253,7 @@ const getConfig = (): AppConfig => {
   // Validate configuration
   validateConfig(config);
   
-  console.log(`🔧 [CONFIG] Loaded ${environment} configuration`, {
-    environment: config.ENVIRONMENT,
-    version: config.VERSION,
-    orchestrator: config.ORCHESTRATOR.HTTP_URL,
-    mediaServer: config.MEDIA_SERVER.HTTP_URL,
-    stt: config.STT_SERVICE.HTTP_URL,
-    tts: config.TTS_SERVICE.HTTP_URL,
-    llm: config.LLM_SERVICE.HTTP_URL,
-  });
+  // Configuration loaded silently
   
   return config;
 };

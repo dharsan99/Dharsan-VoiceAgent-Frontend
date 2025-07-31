@@ -31,13 +31,21 @@ class AudioProcessor extends AudioWorkletProcessor {
         level: this.audioLevel
       });
 
-      // Echo the audio (for testing)
-      if (output && output.length > 0) {
-        const outputChannel = output[0];
-        for (let i = 0; i < inputChannel.length; i++) {
-          outputChannel[i] = inputChannel[i];
-        }
+      // Convert Float32 to Int16 PCM for proper audio format
+      const int16Data = new Int16Array(inputChannel.length);
+      for (let i = 0; i < inputChannel.length; i++) {
+        // Convert Float32 (-1.0 to 1.0) to Int16 (-32768 to 32767)
+        int16Data[i] = Math.max(-32768, Math.min(32767, Math.round(inputChannel[i] * 32767)));
       }
+      
+      // Send converted audio data for WebSocket transmission
+      this.port.postMessage({
+        type: 'audioData',
+        audioData: int16Data.buffer
+      });
+
+      // REMOVED: Audio echo - don't send input back to output
+      // This was causing the voice echo issue
     }
 
     return true;
